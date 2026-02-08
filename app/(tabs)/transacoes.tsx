@@ -1,17 +1,139 @@
 import { StyleSheet, TouchableOpacity, View, Text, Modal, TextInput } from 'react-native';
-import { autenticacao } from "../../firebaseConfig";
-import { signOut } from 'firebase/auth';
-import { useState } from 'react';
+import { db } from "../../firebaseConfig";
+import * as banco from "@/scripts/banco";
+import { Picker } from '@react-native-picker/picker';
+import { modal } from '@/estilos/modal';
+import { useEffect, useState } from 'react';
+import { addDoc, collection, onSnapshot, orderBy, query, serverTimestamp, setDoc, where } from 'firebase/firestore';
 
 export default function Transacoes() {
 
   const [entrada, setEntrada] = useState(false);
   const [saida, setSaida] = useState(false);
 
-  const [pagamento, setPagamento] = useState('');
+  const [pagamento, setPagamento] = useState('pix');
   const [nome, setNome] = useState('');
   const [valor, setValor] = useState(0);
+
   const [doutor, setDoutor] = useState('');
+
+  const [dentistas, setDentistas] = useState<any[]>([]);
+  const [texto, setTexto] = useState('0,00');
+
+  // Lida com mudanças na moeda
+  const mudarValor = ( moeda: string ) => {
+    
+    const apenasNumeros = moeda.replace(/\D/g, '');
+
+    if (apenasNumeros.length === 0) {
+      setTexto('');
+      setValor(0);
+      return;
+    }
+
+    const numero = parseInt(apenasNumeros, 10) / 100;
+
+    setValor(numero);
+
+    const formatado = numero.toLocaleString('pt-BR', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    });
+
+    setTexto(formatado);
+  };
+
+  // Carrega doutores
+  useEffect(() => {
+
+    const q = query(
+      collection(db, "usuario"),
+      where("role", "==", "dentista"),
+      orderBy('nome')
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+
+      const lista: any[] = [];
+
+      snapshot.forEach((doc) => {
+        lista.push({
+          id: doc.id,
+          ...doc.data()
+        });
+      });
+
+      setDentistas(lista);
+    });
+
+    return unsubscribe;
+
+  }, []);
+
+  const zerarUseStates = () => {
+    setPagamento('pix');
+    setNome('');
+    setValor(0);
+    setDoutor('');
+    setTexto('0,00');
+  };
+
+  // Salva entrada
+  const salvarTransacao = async( tipo: string ) => {
+    try{
+      
+      // Não permite vazio
+      if ( !nome || valor === 0 ) {
+        alert("Preencha todos os campos");
+        return;
+      }
+
+      let valorDoutor = 0;
+      let valorCartao = 0;
+
+      // pega a porcentagem do dentista
+      if (doutor != '') {
+        const porcentagemDentista = await banco.getPorcentagemDentista(doutor);
+        valorDoutor = valor * (porcentagemDentista/100);
+      }
+
+      // Pega a porcentagem do cartão
+      if ( pagamento === 'cartao' && tipo === 'entrada'){
+        const porcentagemCartao = await banco.getTaxaCartao();
+        valorCartao = valor * ((porcentagemCartao)/100);
+      }
+
+      // Separa o valor da clínica
+      const  valorClinica = valor - valorCartao - valorDoutor;
+
+      // Pega informaçoes do usuário logado
+      let id = await banco.getIdLogado();
+
+      // Cadastra no db
+      await addDoc(collection(db, "transacao"), {
+        nome: nome,
+        formaPagamento: pagamento,
+        criadoPor: id,
+        tipo: tipo,
+        valorBruto: valor,
+        data: serverTimestamp(),
+        idDoutor: doutor,
+        valorClinica: valorClinica,
+        valorDoutor: valorDoutor,
+        valorCartao: valorCartao
+      });
+
+      alert(`Registro ${nome} criado com suceso!`);
+    }
+    catch ( error:any ){
+      console.log(error);
+      alert(`Criação falhou: ${error.message}`);
+    }
+
+    zerarUseStates();
+    setEntrada(false);
+    setSaida(false);
+  };
 
   return (
     <View style={styles.container}>
@@ -21,18 +143,110 @@ export default function Transacoes() {
         <Text style={styles.texto}>Entrada</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity style={styles.botao}>
+      <TouchableOpacity style={styles.botao} onPress={() => setSaida(true)}>
         <Text style={styles.texto}>Saída</Text>
       </TouchableOpacity>
 
-      <Modal animationType="fade" transparent visible={entrada} onRequestClose={() => setEntrada(false)}>
-      <View style={styles.fundo_modal}>
-        <TextInput style={styles.input} placeholder='Nome da transação' value={nome} onChangeText={setNome} />
+      {/*Modal de entrada*/}
+      <Modal animationType="fade" transparent visible={entrada} onRequestClose={() => {setEntrada(false), zerarUseStates()}}>
+      <View style={modal.fundo_modal}>
 
+        {/*Nome*/}
+        <TextInput 
+          style={modal.input} 
+          placeholder='Nome da transação' 
+          value={nome} 
+          onChangeText={setNome} />
 
+        {/*Forma de pagamento*/}
+        <View style={[modal.input, {justifyContent: 'center'}]}>
+          <Picker
+            selectedValue={pagamento}
+            onValueChange={(itemValue) => setPagamento(itemValue)}
+          >
+            <Picker.Item label="Pix" value="pix" />
+            <Picker.Item label="Cartão" value="cartao" />
+            <Picker.Item label="Dinheiro" value="dinheiro" />
+          </Picker>
+        </View>
+
+        {/*Valor Bruto*/}
+        <View style={modal.container_percent}>
+          <Text style={[modal.percentSymbol, {color: 'black'}]}>R$</Text>
+          <TextInput 
+            style={modal.input_percent}  
+            value={texto} 
+            onChangeText={mudarValor} 
+            keyboardType='decimal-pad'/>  
+        </View>
+
+        {/*Doutor responsável (se houver)*/}
+        <View style={[modal.input, {justifyContent: 'center'}]}>
+          <Picker
+            selectedValue={doutor}
+            onValueChange={(itemValue) => setDoutor(itemValue)}
+          >
+            <Picker.Item label="Sem doutor responsável" value="" />
+            {dentistas.map((item) => (
+              <Picker.Item
+                key={item.id}
+                label={item.nome}
+                value={item.id} 
+              />
+            ))}
+          </Picker>
+        </View>
+
+        {/*Botão de salvar*/}
+        <TouchableOpacity style={modal.botao} onPress={() => salvarTransacao('entrada')}>
+          <Text style={modal.texto}>Salvar</Text>
+        </TouchableOpacity>  
       
       </View>
       </Modal>
+
+      {/*Modal de saída*/}
+      <Modal animationType="fade" transparent visible={saida} onRequestClose={() => {setSaida(false), zerarUseStates()}}>
+      <View style={modal.fundo_modal}>
+
+        {/*Nome*/}
+        <TextInput 
+          style={modal.input} 
+          placeholder='Nome da transação' 
+          value={nome} 
+          onChangeText={setNome} />
+
+        {/*Forma de pagamento*/}
+        <View style={[modal.input, {justifyContent: 'center'}]}>
+          <Picker
+            selectedValue={pagamento}
+            onValueChange={(itemValue) => setPagamento(itemValue)}
+          >
+            <Picker.Item label="Pix" value="pix" />
+            <Picker.Item label="Cartão" value="cartao" />
+            <Picker.Item label="Dinheiro" value="dinheiro" />
+          </Picker>
+        </View>
+
+        {/*Valor Bruto*/}
+        <View style={modal.container_percent}>
+          <Text style={[modal.percentSymbol, {color: 'black'}]}>R$</Text>
+          <TextInput 
+            style={modal.input_percent}  
+            value={texto} 
+            onChangeText={mudarValor} 
+            keyboardType='decimal-pad'/>  
+        </View>
+
+
+        {/*Botão de salvar*/}
+        <TouchableOpacity style={modal.botao} onPress={() => salvarTransacao('saida')}>
+          <Text style={modal.texto}>Salvar</Text>
+        </TouchableOpacity>  
+      
+      </View>
+      </Modal>
+
 
     </View>
   );
@@ -64,31 +278,5 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontSize: 17
   },
-  fundo_modal:{
-    backgroundColor: 'white',
-    margin:'auto',
-    width: '100%',
-    justifyContent: 'center',
-    alignItems: 'center',
-    height: '100%',
-    alignSelf: 'center',
-    gap: 23
-  },
-  input:{
-    height: 50,
-    width: '90%', 
-    backgroundColor: '#FFFFFF', 
-    borderColor: '#E8EAF6',
-    borderWidth: 1,
-    borderRadius: 10,
-    marginVertical: 10,
-    paddingHorizontal: 15, 
-    fontSize: 16,
-    color: '#3C4858',
-    shadowColor: '#9E9E9E',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 4, 
-  }
+
 });

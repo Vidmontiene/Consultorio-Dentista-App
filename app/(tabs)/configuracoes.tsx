@@ -7,6 +7,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { useEffect, useState } from 'react';
 import { createUserWithEmailAndPassword, onAuthStateChanged } from '@firebase/auth';
 import { doc, setDoc, serverTimestamp, getDoc } from "firebase/firestore";
+import { secondaryAuth } from "@/scripts/secondaryauth";
 import { db } from '@/firebaseConfig';
 import { autenticacao } from '@/firebaseConfig';
 import { router } from 'expo-router';
@@ -80,7 +81,7 @@ export default function Configuracoes() {
       }
 
       // Cria conta e pega uid
-      const usuario = await createUserWithEmailAndPassword(autenticacao, email, senha);
+      const usuario = await createUserWithEmailAndPassword(secondaryAuth, email, senha);
       const uid = usuario.user.uid;
 
       // Define cargo
@@ -186,10 +187,10 @@ export default function Configuracoes() {
 
       {/*Editar usuário*/}
       <TouchableOpacity style={botao.botao}
-        onPress={() => cargoUsuario === 'funcionario' ?
+        onPress={() => cargoUsuario != 'admin' ?
           Alert.alert(
             "Acesso negado", 
-            "Somente administradores e dentistas podem editar usuários!")
+            "Somente administradores podem editar usuários!")
           :
           router.push('../usuarios')
         }>
@@ -304,11 +305,9 @@ export default function Configuracoes() {
         <Text style={modal.percentSymbol}>%</Text>
         </View>
   
-
         <TouchableOpacity style={modal.botao} onPress={salvarTaxa}>
           <Text style={modal.texto}>Salvar</Text>
         </TouchableOpacity>  
-
 
       </View>
       </Modal>

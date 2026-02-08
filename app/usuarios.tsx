@@ -23,8 +23,6 @@ export default function usuarios() {
 
   const [editar, setEditar] = useState(false);
 
-  const [cargoUsuario, setCargoUsuario] = useState('');
-
   // Carrega os usuários no useState ao vivo por ordem alfabética
   const carregarUsuarios = async () => {
 
@@ -52,31 +50,6 @@ export default function usuarios() {
 
   useEffect(() => {
     carregarUsuarios();
-
-    const unsubscribe = onAuthStateChanged(autenticacao, async (user) => {
-
-    if (!user) return;
-
-    const uid = user.uid;
-
-    try {
-
-      const userRef = doc(db, "usuario", uid);
-      const userSnap = await getDoc(userRef);
-
-      if (userSnap.exists()) {
-        const dados = userSnap.data();
-        setCargoUsuario(dados.role);
-      }
-
-    }
-    catch (error) {
-      console.log("Erro ao carregar dados iniciais:", error);
-    }
-
-    });
-
-   return unsubscribe;
 
   }, []);
 
@@ -169,15 +142,6 @@ export default function usuarios() {
 
   // Confirma se quer mesmo deletar
   const confirmarDelete = () => {
-
-    // Não deia se não for admin
-    if (cargoUsuario != 'admin'){
-      Alert.alert(
-        "Acesso negado", 
-        "Somente administradores podem remover um usuário!")
-      
-      return;
-    }
 
     Alert.alert(
       "Tem certeza que deseja deletar este usuário?", 
