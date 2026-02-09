@@ -66,9 +66,9 @@ export const modal = StyleSheet.create({
   },
 
   input_percent: {
-  flex: 1,
-  height: 45,
-  fontSize: 16,
+    flex: 1,
+    height: 45,
+    fontSize: 16,
   },
 
   percentSymbol: {

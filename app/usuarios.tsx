@@ -254,6 +254,7 @@ export default function usuarios() {
 
         <CustomRadioButton
           label="Funcionário"
+          flex={false}
           value="Funcionário"
           selected={checked === 0}
           onPress={() => {setChecked(0), Keyboard.dismiss()}}
@@ -261,6 +262,7 @@ export default function usuarios() {
 
         <CustomRadioButton
           label="Dentista"
+          flex={false}
           value="Dentista"
           selected={checked === 1}
           onPress={() => {setChecked(1), Keyboard.dismiss()}}
@@ -268,6 +270,7 @@ export default function usuarios() {
 
         <CustomRadioButton
           label="Administrador"
+          flex={false}
           value="Administrador"
           selected={checked === 2}
           onPress={() => {setChecked(2), Keyboard.dismiss()}}

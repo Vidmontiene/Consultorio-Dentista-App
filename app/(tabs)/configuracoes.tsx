@@ -12,19 +12,22 @@ import { db } from '@/firebaseConfig';
 import { autenticacao } from '@/firebaseConfig';
 import { router } from 'expo-router';
 import { botao } from '@/estilos/botoes';
+import * as banco from "@/scripts/banco";
 
 export default function Configuracoes() {
 
+  // Modais
   const [add, setAdd] = useState(false);
-  const [editar, setEditar] = useState(false);
   const [taxa, setTaxa] = useState(false);
 
+  // Valores
   const [nome, setNome] = useState('');
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
   const [porcent, setPorcent] = useState('');
   const [checked, setChecked] = useState(0);  // 0 = funcionário, 1 = doutor, 2 = admin
 
+  // Valores do DB
   const [nomeUsuario, setNomeUsuario] = useState("");
   const [cargoUsuario, setCargoUsuario] = useState("");
   const [cartao, setCartao] = useState("");
@@ -128,39 +131,19 @@ export default function Configuracoes() {
 
   // Pega o nome e cargo do usuário logado
   useEffect(() => {
-
     const unsubscribe = onAuthStateChanged(autenticacao, async (user) => {
 
     if (!user) return;
+      
+    const nome = await banco.getNome();
+    setNomeUsuario(nome);
+    const cargo = await banco.getRole();
+    setCargoUsuario(cargo);
+    const cartao = await banco.getTaxaCartao();
+    setCartao(String(cartao));
 
-    const uid = user.uid;
-
-    try {
-
-      const userRef = doc(db, "usuario", uid);
-      const userSnap = await getDoc(userRef);
-
-      if (userSnap.exists()) {
-        const dados = userSnap.data();
-        setNomeUsuario(dados.nome);
-        setCargoUsuario(dados.role);
-      }
-
-      const configRef = doc(db, "configuracoes", "geral");
-      const configSnap = await getDoc(configRef);
-
-      if (configSnap.exists()) {
-        const config = configSnap.data();
-        setCartao(String(config.porcentagemCartao));
-      }
-
-    } catch (error) {
-      console.log("Erro ao carregar dados iniciais:", error);
-    }
-
-    });
-
-   return unsubscribe;
+    return unsubscribe;
+    })
   }, []);
 
   return (
@@ -251,6 +234,7 @@ export default function Configuracoes() {
         <CustomRadioButton
           label="Funcionário"
           value="Funcionário"
+          flex={false}
           selected={checked === 0}
           onPress={() => {setChecked(0), Keyboard.dismiss()}}
         />
@@ -258,6 +242,7 @@ export default function Configuracoes() {
         <CustomRadioButton
           label="Dentista"
           value="Dentista"
+          flex={false}
           selected={checked === 1}
           onPress={() => {setChecked(1), Keyboard.dismiss()}}
         />
@@ -265,6 +250,7 @@ export default function Configuracoes() {
         <CustomRadioButton
           label="Administrador"
           value="Administrador"
+          flex={false}
           selected={checked === 2}
           onPress={() => {setChecked(2), Keyboard.dismiss()}}
         />

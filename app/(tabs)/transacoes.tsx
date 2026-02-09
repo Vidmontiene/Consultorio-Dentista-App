@@ -4,7 +4,7 @@ import * as banco from "@/scripts/banco";
 import { Picker } from '@react-native-picker/picker';
 import { modal } from '@/estilos/modal';
 import { useEffect, useState } from 'react';
-import { addDoc, collection, onSnapshot, orderBy, query, serverTimestamp, setDoc, where } from 'firebase/firestore';
+import { addDoc, collection, doc, onSnapshot, orderBy, query, serverTimestamp, setDoc, where } from 'firebase/firestore';
 
 export default function Transacoes() {
 
@@ -90,21 +90,23 @@ export default function Transacoes() {
 
       let valorDoutor = 0;
       let valorCartao = 0;
-
-      // pega a porcentagem do dentista
-      if (doutor != '') {
-        const porcentagemDentista = await banco.getPorcentagemDentista(doutor);
-        valorDoutor = valor * (porcentagemDentista/100);
-      }
+      let aposCartao = valor;
 
       // Pega a porcentagem do cartão
       if ( pagamento === 'cartao' && tipo === 'entrada'){
         const porcentagemCartao = await banco.getTaxaCartao();
         valorCartao = valor * ((porcentagemCartao)/100);
       }
+      aposCartao -= valorCartao;
+
+      // pega a porcentagem do dentista
+      if (doutor != '') {
+        const porcentagemDentista = await banco.getPorcentagemDentista(doutor);
+        valorDoutor = aposCartao * (porcentagemDentista/100);
+      }
 
       // Separa o valor da clínica
-      const  valorClinica = valor - valorCartao - valorDoutor;
+      const  valorClinica = aposCartao - valorDoutor;
 
       // Pega informaçoes do usuário logado
       let id = await banco.getIdLogado();
@@ -122,6 +124,21 @@ export default function Transacoes() {
         valorDoutor: valorDoutor,
         valorCartao: valorCartao
       });
+
+      // Coloca no caixa
+      if (pagamento === "dinheiro"){
+        const atual = await banco.getCaixa();
+        if (tipo === 'entrada'){
+          await setDoc(doc(db, "caixa", "geral"),{
+            valor: atual + valorClinica
+          })
+        }
+        else{
+          await setDoc(doc(db, "caixa", "geral"),{
+            valor: atual - valorClinica
+          })       
+        }
+      }
 
       alert(`Registro ${nome} criado com suceso!`);
     }

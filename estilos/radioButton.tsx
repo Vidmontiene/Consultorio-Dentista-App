@@ -5,14 +5,15 @@ interface CustomRadioButtonProps {
   label: string;
   value: string;
   selected: boolean;
+  flex: boolean
   onPress: (value: string) => void;
 }
 
 // Bolinhas
-export const CustomRadioButton: React.FC<CustomRadioButtonProps> = ({label, value, selected, onPress}) => {
+export const CustomRadioButton: React.FC<CustomRadioButtonProps> = ({label, value, selected, flex, onPress}) => {
   return (
     <TouchableOpacity
-      style={styles.container_radio}
+      style={flex ? [styles.container_radio, {flex: 1}] : styles.container_radio}
       onPress={() => onPress(value)}
       activeOpacity={0.8}
     >

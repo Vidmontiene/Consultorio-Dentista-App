@@ -1,23 +1,265 @@
-import { useEffect, useState } from "react";
-import { View, Text, FlatList, StyleSheet, ScrollView } from "react-native";
+import { useCallback, useEffect, useState } from "react";
+import { View, Text, FlatList, StyleSheet, ScrollView, SectionList, TouchableOpacity, Alert, Modal, TextInput, Keyboard } from "react-native";
 import { escutarRelatorio, LinhaRelatorio, Totais } from "@/scripts/relatorio";
+import { Picker } from '@react-native-picker/picker';
 import * as banco from "@/scripts/banco";
+import { exportarRelatorioExcel } from "@/scripts/exportarExcel";
+import FontAwesome from '@expo/vector-icons/FontAwesome';
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import { db } from "@/firebaseConfig";
+import { collection, deleteDoc, doc, onSnapshot, orderBy, query, setDoc, updateDoc, where } from "firebase/firestore";
+import { useFocusEffect } from "expo-router";
+import { modal } from "@/estilos/modal";
+import { CustomRadioButton } from "@/estilos/radioButton";
 
 export default function RelatorioScreen() {
 
+  // Linhas da planilha
   const [linhas, setLinhas] = useState<LinhaRelatorio[]>([]);
   const [totais, setTotais] = useState<Totais | null>(null);
-  const [nomesUsuarios, setNomesUsuarios] = useState<Record<string, string>>({});
-  const [nomesDentistas, setNomesDentistas] = useState<Record<string, string>>({});
+
+  // Dados importantes para a planilha
+  const [nomesDentistas, setNomesDentistas] = useState<Record<string, UsuarioInfo>>({});
+  const [nomesUsuarios, setNomesUsuarios] = useState<Record<string, UsuarioInfo>>({});
   const [dentistasLista, setDentistasLista] = useState<string[]>([]);
   const [totaisPorDentista, setTotaisPorDentista] = useState<Record<string, number>>({});
+
+  const [caixaDB, setCaixaDB] = useState(0);
   const [role, setRole] = useState('');
+
+  // Data selecionada
+  const hoje = new Date();
+  const [mesSelecionado, setMesSelecionado] = useState(hoje.getMonth()+1);
+  const [anoSelecionado, setAnoSelecionado] = useState(hoje.getFullYear());
+
+  // useStates para editar
+  const [pagamento, setPagamento] = useState('pix');
+  const [tipo, setTipo] = useState('')
+  const [nome, setNome] = useState('');
+  const [valor, setValor] = useState(0);
+  const [data, setData] = useState('');
+  const [texto, setTexto] = useState('0,00');
+  const [doutor, setDoutor] = useState('');
+  const [id, setId] = useState('');
+
+  const [editar, setEditar] = useState(false);
+
+  const [dentistas, setDentistas] = useState<any[]>([]);
+
+  // Lida com mudanças na moeda
+  const mudarValor = ( moeda: string ) => {
+    
+    const apenasNumeros = moeda.replace(/\D/g, '');
+
+    if (apenasNumeros.length === 0) {
+      setTexto('');
+      setValor(0);
+      return;
+    }
+
+    const numero = parseInt(apenasNumeros, 10) / 100;
+
+    setValor(numero);
+
+    const formatado = numero.toLocaleString('pt-BR', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    });
+
+    setTexto(formatado);
+  };
+
+  // Preenche os states do registro clicado
+  const preencherStates = (item: LinhaRelatorio) => {
+    setNome(item.nome);
+    setValor(item.entrada != 0 ? item.entrada : item.saida);
+    setTexto(item.entrada != 0 ? String(item.entrada) : String(item.saida));
+    setPagamento(item.formaPagamento);
+    setData(item.data);
+    setId(item.id);
+    setTipo(item.tipo);
+    setDoutor(item.idDoutor);
+  };
+
+  // Salva as mudanças
+  const salvar = async() => {
+    try {
+
+      // Não permite vazio
+      if ( !nome || valor === 0 ) {
+        alert("Preencha todos os campos");
+        return;
+      }
+
+      let valorDoutor = 0;
+      let valorCartao = 0;
+      let aposCartao = valor;
+
+      // Pega a porcentagem do cartão
+      if ( pagamento === 'cartao' && tipo === 'entrada'){
+        const porcentagemCartao = await banco.getTaxaCartao();
+        valorCartao = valor * ((porcentagemCartao)/100);
+      }
+      aposCartao -= valorCartao;
+
+      // pega a porcentagem do dentista
+      if (doutor != '') {
+        const porcentagemDentista = await banco.getPorcentagemDentista(doutor);
+        valorDoutor = aposCartao * (porcentagemDentista/100);
+      }
+
+      // Separa o valor da clínica
+      const  valorClinica = aposCartao - valorDoutor;
+
+      const ref = doc(db, "transacao", id);
+      await updateDoc(ref, {
+        nome: nome,
+        formaPagamento: pagamento,
+        idDoutor: doutor,
+        tipo: tipo,
+        valorBruto: valor,
+        valorCartao: valorCartao,
+        valorClinica: valorClinica
+      });
+
+      // Coloca no caixa
+      if (pagamento === "dinheiro"){
+        const atual = await banco.getCaixa();
+        if (tipo === 'entrada'){
+          await setDoc(doc(db, "caixa", "geral"),{
+            valor: atual + valorClinica
+          })
+        }
+        else{
+          await setDoc(doc(db, "caixa", "geral"),{
+            valor: atual - valorClinica
+          })       
+        }
+        await carregarCaixa();
+      }
+
+      alert("Registro atualizado!");
+
+    } catch (error) {
+      console.log(error);
+      alert("Erro ao atualizar");
+    }
+
+    setEditar(false);
+  };
 
   type RelatorioSnapshot = {
     linhas: LinhaRelatorio[];
     totais: Totais;
   };
 
+  type UsuarioInfo = {
+    nome: string;
+    porcentagem: number;
+  };
+
+  const meses = [
+    "Janeiro","Fevereiro","Março","Abril","Maio","Junho",
+    "Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"
+  ];
+
+  const dataParaDate = (data: string) => {
+    const [dia, mes, ano] = data.split("/").map(Number);
+    return new Date(ano, mes - 1, dia);
+  };
+
+  // anos baseados nos dados existentes
+  const anosDisponiveis = [
+    ...new Set(
+      linhas
+        .map(l => {
+          if (!l.data || typeof l.data !== "string") return null;
+
+          const partes = l.data.split("/");
+          if (partes.length !== 3) return null;
+
+          return Number(partes[2]);
+        })
+        .filter((ano): ano is number => !!ano)
+    )
+  ];
+
+  function criarDataMes(mes: number, ano: number) {
+    return new Date(ano, mes - 1, 1);
+  }
+
+  function getMesAnterior(data: Date) {
+    return new Date(data.getFullYear(), data.getMonth() - 1, 1);
+  }
+
+  const dataSelecionada = criarDataMes(mesSelecionado, anoSelecionado);
+  const mesAnterior = getMesAnterior(dataSelecionada);
+  const mesAnteriorNumero = mesAnterior.getMonth() + 1;
+  const anoAnteriorNumero = mesAnterior.getFullYear();
+
+  // Pega as linhas do mes e ano selecionados
+  const linhasFiltradas = linhas
+    .filter(l => {
+      if (!l.data || !l.data.includes("/")) return false;
+      const [dia, mes, ano] = l.data.split("/").map(Number);
+      return mes === mesSelecionado && ano === anoSelecionado;
+    })
+    .sort((a, b) => dataParaDate(a.data).getTime() - dataParaDate(b.data).getTime());
+
+  // Pega as linhas do mes anterior
+  const linhasMesAnterior = linhas
+    .filter(l => {
+      if (!l.data || !l.data.includes("/")) return false;
+
+      const [dia, mes, ano] = l.data.split("/").map(Number);
+      return mes === mesAnteriorNumero && ano === anoAnteriorNumero;
+  });
+
+  // Totais do mes anterioir
+  const totaisMesAnterior = linhasMesAnterior.reduce(
+    (acc, l) => ({
+      entrada: l.tipo === "entrada" ? acc.entrada + l.entrada : acc.entrada,
+
+      caixa: l.tipo === 'entrada' && l.formaPagamento === 'dinheiro' ?
+        acc.caixa + l.valorClinica : l.tipo === 'saida' && l.formaPagamento === 'dinheiro' ?
+        acc.caixa - l.valorClinica : acc.caixa,
+      saida: l.tipo === "saida" ? acc.saida + l.saida : acc.saida,
+      saldo: l.tipo === "entrada" ? acc.saldo + l.entrada : acc.saldo - l.saida,
+      cartao: acc.cartao + l.valorCartao,
+      clinica: l.tipo === 'entrada'
+        ? acc.clinica + l.valorClinica
+        : acc.clinica - l.valorClinica,
+      doutor: (acc.doutor ?? 0) + l.valorDoutor,
+    }),
+    { saldo: 0, cartao: 0, clinica: 0, doutor: 0, entrada:0, saida: 0, caixa: 0 } as Totais
+  );
+
+  // totais do mês e ano selecionados
+  const totaisFiltrados = linhasFiltradas.reduce(
+    (acc, l) => ({
+      // conta acc, para cada linha l
+      entrada: l.tipo === "entrada" ? acc.entrada + l.entrada : acc.entrada,
+      caixa: l.tipo === 'entrada' && l.formaPagamento === 'dinheiro' ?
+        acc.caixa + l.valorClinica : l.tipo === 'saida' && l.formaPagamento === 'dinheiro' ?
+        acc.caixa - l.valorClinica : acc.caixa,
+      saida: l.tipo === "saida" ? acc.saida + l.saida : acc.saida,
+      saldo: l.tipo === "entrada" ? acc.saldo + l.entrada : acc.saldo - l.saida,
+      cartao: acc.cartao + l.valorCartao,
+      clinica: l.tipo === 'entrada'? acc.clinica + l.valorClinica : acc.clinica - l.valorClinica,
+      doutor: (acc.doutor ?? 0) + l.valorDoutor,
+    }),
+    { saldo: 0, cartao: 0, clinica: 0, doutor: 0, entrada:0, saida: 0, caixa: 0} as Totais
+  );
+
+  // totais por dentista do mês
+  const totaisPorDentistaFiltrado: Record<string, number> = {};
+  linhasFiltradas.forEach(l => {
+    if (!l.idDoutor) return;
+    totaisPorDentistaFiltrado[l.idDoutor] =
+      (totaisPorDentistaFiltrado[l.idDoutor] ?? 0) + l.valorDoutor;
+  });
+
+  // Carrega as linhas, pega role
   useEffect(() => {
 
     const unsubscribe = escutarRelatorio(async (dados: RelatorioSnapshot) => {
@@ -56,25 +298,71 @@ export default function RelatorioScreen() {
 
       const role = await banco.getRole();
       setRole(role);
+
     });
 
     return () => unsubscribe();
 
   }, []);
 
+  // Carrega doutores
+  useEffect(() => {
+
+    const q = query(
+      collection(db, "usuario"),
+      where("role", "==", "dentista"),
+      orderBy('nome')
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+
+      const lista: any[] = [];
+
+      snapshot.forEach((doc) => {
+        lista.push({
+          id: doc.id,
+          ...doc.data()
+        });
+      });
+
+      setDentistas(lista);
+    });
+
+    return unsubscribe;
+
+  }, []);
+
+  // Carrega o valor da caixa
+  useFocusEffect(
+    useCallback(() => {
+      carregarCaixa();
+    }, [])
+  );
+
+  const carregarCaixa = async() => {
+    const caixa = await banco.getCaixa();
+    setCaixaDB(caixa.toFixed(2));
+  }
+
   const buscarMapaUsuarios = async (ids: string[]) => {
 
-    const unicos = [...new Set(ids)];
+    const unicos = [...new Set(ids.filter(Boolean))];
 
     const resultados = await Promise.all(
       unicos.map(async (id) => {
-        const nome = await banco.getNomeCache(id, banco.getNomeBanco);
-        return { id, nome };
+        const usuario = await banco.getUsuarioCache(id);
+        return { id, ...usuario };
       })
     );
 
-    const mapa: Record<string, string> = {};
-    resultados.forEach(r => mapa[r.id] = r.nome);
+    const mapa: Record<string, { nome: string; porcentagem: number }> = {};
+
+    resultados.forEach(r => {
+      mapa[r.id] = {
+        nome: r.nome,
+        porcentagem: r.porcentagem
+      };
+    });
 
     return mapa;
   };
@@ -90,27 +378,79 @@ export default function RelatorioScreen() {
     else {
       return "Dinheiro";
     }
-  }
+  };
 
-  // Formata o tipo
-  const formataTipo = ( tipo: string ) => {
-    if (tipo === 'saida'){
-      return 'Saída';
-    }
-    else {
-      return 'Entrada';
-    }
-  }
+  // Confirma se quer mesmo deletar
+  const confirmarDelete = (item : LinhaRelatorio) => {
+
+    Alert.alert(
+      `Deletar "${item.nome}?"`, 
+      "Essa ação não poderá ser revertida.",
+      [
+        {
+          text: "Cancelar",
+          style: "cancel"
+        },
+        {
+          text: "Deletar",
+          style: "destructive",
+          onPress: () => deletar(item)
+        }
+      ],
+      { cancelable: true }
+    );
+  };
+
+  // Deleta usuário
+    const deletar = async (item: LinhaRelatorio) => {
+      try {
+        await deleteDoc(doc(db, "transacao", item.id));
+
+        if (item.formaPagamento === "dinheiro"){
+          const atual = await banco.getCaixa();
+          if (item.tipo === "entrada"){
+            await setDoc(doc(db, "caixa", "geral"),{
+              valor: atual - item.entrada
+            })
+          }
+          else{
+            await setDoc(doc(db, "caixa", "geral"),{
+              valor: atual + item.saida
+            })
+          }
+          await carregarCaixa();
+        }
+
+        alert("Registro deletado!");
+
+      } catch (error) {
+        console.log(error);
+        alert("Erro ao deletar registro");
+      }
+
+  };
 
   // Renderiza as linhas
   const renderItem = ({ item }: { item: LinhaRelatorio }) => (
     <View style={styles.row}>
+
       <Text style={styles.cel}>{item.nome}</Text>
+
       <Text style={styles.cel}>{item.data}</Text>
-      <Text style={styles.cel}>{nomesUsuarios[item.criadoPor] ?? "—"}</Text>
-      <Text style={styles.cel}>{formataTipo(item.tipo)}</Text>
+
+      <Text style={styles.cel}>
+        {nomesUsuarios[item.criadoPor]?.nome ?? "—"}
+      </Text>
+
+      <Text style={[styles.cel, {color: '#6AA84F'}]}>
+        {item.entrada != 0 ? `R$ ${item.entrada}` : ""}
+      </Text>
+
+      <Text style={[styles.cel, {color: '#E06666'}]}>
+        {item.saida != 0 ? `R$ -${item.saida}` : ""}
+      </Text>
+
       <Text style={styles.cel}>{formataForma(item.formaPagamento)}</Text>
-      <Text style={styles.cel}>R$ {item.valorBruto.toFixed(2)}</Text>
 
       {dentistasLista.map(id => (
         <Text key={id} style={styles.cel}>
@@ -120,86 +460,252 @@ export default function RelatorioScreen() {
         </Text>
       ))}
 
-      <Text style={styles.cel}>R$ {item.valorCartao.toFixed(2)}</Text>
-      <Text style={styles.cel}>R$ {item.valorClinica.toFixed(2)}</Text>
+      <Text style={[styles.cel, {color: '#E06666'}]}>
+        {item.valorCartao != 0 ?`R$ -${item.valorCartao.toFixed(2)}`: ""}
+      </Text>
+
+      <Text style={item.tipo === 'entrada'? 
+        [styles.cel, {color: '#6AA84F'}] 
+        : 
+        [styles.cel, {color: '#E06666'}]}>{
+          
+        item.tipo === 'entrada' ? 
+        `R$ ${item.valorClinica.toFixed(2)}`
+        : 
+        `R$ -${item.valorClinica.toFixed(2)}` 
+      }</Text>
+
+      <TouchableOpacity style={styles.cel} onPress={() => {preencherStates(item), setEditar(true)}}>
+        <MaterialIcons name="edit" size={24} color="black" />
+      </TouchableOpacity>
+
+      <TouchableOpacity style={styles.cel} onPress={() => confirmarDelete(item)}>
+        <FontAwesome name="trash-o" size={24} color="black" />
+      </TouchableOpacity>
     </View>
   );
 
   return (
     <>
       {role === 'admin' &&(
-        <ScrollView horizontal>
-        <View style={{ flex: 1 }}>
-        
-        {/* CABEÇALHO */}
-        <View style={[styles.row, styles.header]}>
-          <Text style={styles.cel}>Nome</Text>
-          <Text style={styles.cel}>Data</Text>
-          <Text style={styles.cel}>Criado por</Text>
-          <Text style={styles.cel}>Tipo</Text>
-          <Text style={styles.cel}>Forma</Text>
-          <Text style={styles.cel}>Valor Bruto</Text>
+        <>
 
-          {dentistasLista.map(id => (
-            <Text key={id} style={styles.cel}>
-              {nomesDentistas[id] ?? "—"}
-            </Text>
-          ))}
+          <View style={styles.linhaPickers}>
 
-          <Text style={styles.cel}>Taxa Cartão</Text>
-          <Text style={styles.cel}>Clínica</Text>
-        </View>
+            {/*Mes*/}
+            <View style={styles.pickerMes}>
+              <Picker
+                selectedValue={mesSelecionado}
+                onValueChange={(itemValue) => setMesSelecionado(itemValue)}
+              >
+                {meses.map((nome, i) => (
+                  <Picker.Item key={i} label={nome} value={i + 1} />
+                ))}
+              </Picker>
+            </View>
 
-        <FlatList
-          data={linhas}
-          renderItem={renderItem}
-          keyExtractor={(item) => item.id}
-        />
+            {/*Ano*/}
+            <View style={styles.pickerAno}>
+              <Picker
+                selectedValue={anoSelecionado}
+                onValueChange={(itemValue) => setAnoSelecionado(itemValue)}
+              >
+                {anosDisponiveis.map((ano) => (
+                  <Picker.Item key={ano} label={String(ano)} value={Number(ano)} />
+                ))}
+              </Picker>
+            </View>
 
-        {/* RODAPÉ TOTAL */}
-        {totais && (
-          <View style={styles.footer}>
-            {/* colunas vazias até chegar no bruto */}
-            <Text style={styles.total}>TOTAL</Text>
-            <Text style={styles.total}></Text>
-            <Text style={styles.total}></Text>
-            <Text style={styles.total}></Text>
-            <Text style={styles.total}></Text>
-
-            {/* total bruto */}
-            <Text style={styles.total}>
-              {`Bruto: \nR$ ${totais.bruto.toFixed(2)}`}
-            </Text>
-
-            {/* totais por dentista (dinâmico) */}
-            {dentistasLista.map(id => (
-              <Text key={id} style={styles.total}>
-                {`${nomesDentistas[id]}: \nR$ ${(totaisPorDentista[id] ?? 0).toFixed(2)}`}
-              </Text>
-            ))}
-
-            {/* cartão */}
-            <Text style={styles.total}>
-              {`Cartão: \nR$ ${totais.cartao.toFixed(2)}`}
-            </Text>
-
-            {/* clínica */}
-            <Text style={styles.total}>
-              {`Clínica: \nR$ ${totais.clinica.toFixed(2)}`}
-            </Text>
+            {/*Botão de exportar*/}
+            <TouchableOpacity  
+              style={styles.botao}
+              onPress={() => exportarRelatorioExcel(
+                linhasFiltradas,    // Linhas do mês
+                totaisFiltrados,    // Totais do mês
+                totaisMesAnterior,  // Totais do mes anterior
+                nomesUsuarios,      // Struct que relaciona id com nome do usuário
+                nomesDentistas,     // Struct que relaciona id com nome e porcentagem do dentista
+                mesSelecionado,     // Mes selecionado
+                anoSelecionado      // Ano selecionado
+              )}>
+              <Text style={{fontSize: 16}}>Exportar</Text>
+            </TouchableOpacity>
 
           </View>
-        )}
 
-      </View>
-      </ScrollView>
+          {/*Planilha*/}
+          <ScrollView horizontal>
+          <View style={{ flex: 1 }}>
+
+            <View style={styles.row}>
+              <Text style={[styles.cel_header, {width: 200}]}>Receita do mês anterior:</Text>
+              <Text style={styles.cel}>R$ {totaisMesAnterior.clinica.toFixed(2)}</Text>
+            </View>
+
+            <View style={styles.row}>
+              <Text style={[styles.cel_header, {width: 200}]}>Caixa do mês atual:</Text>
+              <Text style={styles.cel}>R$ {totaisFiltrados.caixa.toFixed(2)}</Text>
+            </View>
+          
+            {/*Cabeçalho*/}
+            <View style={[styles.row, styles.header]}>
+              <Text style={styles.cel_header}>Nome</Text>
+              <Text style={styles.cel_header}>Data</Text>
+              <Text style={styles.cel_header}>Criado por</Text>
+              <Text style={styles.cel_header}>Entrada</Text>
+              <Text style={styles.cel_header}>Saida</Text>
+              <Text style={styles.cel_header}>Forma</Text>
+
+              {dentistasLista.map(id => {
+                const d = nomesDentistas[id];
+
+                return (
+                  <Text key={id} style={styles.cel_header}>
+                    {d ? `${d.porcentagem}% ${d.nome}` : "—"}
+                  </Text>
+                );
+              })}
+
+              <Text style={styles.cel_header}>Taxa Cartão</Text>
+              <Text style={styles.cel_header}>Clínica</Text>
+              <Text style={styles.cel_header}></Text>
+              <Text style={styles.cel_header}></Text>
+            </View>
+
+            <FlatList
+              data={linhasFiltradas}
+              renderItem={renderItem}
+              keyExtractor={(item) => item.id}
+            />
+
+            {/*Rodapé*/}
+            {linhasFiltradas.length > 0 && (
+              <View style={styles.footer}>
+                <Text style={styles.total}>TOTAL</Text> 
+
+                <Text style={styles.total}>
+                  {`Caixa total: \nR$ ${caixaDB}`}
+                </Text>      
+
+                <Text style={styles.total}></Text> 
+
+                <Text style={styles.total}>
+                  {`Entrada: \nR$ ${totaisFiltrados.entrada.toFixed(2)}`}  
+                </Text> 
+
+                <Text style={styles.total}>
+                  {`Saida: \nR$ ${totaisFiltrados.saida.toFixed(2)}`} 
+                </Text>        
+
+                <Text style={styles.total}>
+                  {`Saldo: \nR$ ${totaisFiltrados.saldo.toFixed(2)}`} 
+                </Text> 
+
+                {dentistasLista.map(id => (
+                  <Text key={id} style={styles.total}>
+                    {`${nomesDentistas[id].nome}: \nR$ ${(totaisPorDentistaFiltrado[id] ?? 0).toFixed(2)}`}
+                  </Text>
+                ))}
+
+                <Text style={styles.total}>
+                  {`Cartão: \nR$ -${totaisFiltrados.cartao.toFixed(2)}`} 
+                </Text>
+
+                <Text style={styles.total}>
+                  {`Receita: \nR$ ${totaisFiltrados.clinica.toFixed(2)}`}
+                </Text>
+              </View>
+            )}
+
+          </View>
+          </ScrollView>
+        </>
       )}
       { role != 'admin' && (
         <Text>Sem acesso!</Text>
-      )
-      }
+      )}
+
+      {/*Modal de editar*/}
+      <Modal animationType="fade" transparent visible={editar} onRequestClose={() => {setEditar(false)}}>
+      <View style={modal.fundo_modal}>
+
+        <View style={{flexDirection: 'row',  width: '90%'}}>
+          <CustomRadioButton
+            flex={true}
+            label="Entrada"
+            value="entrada"
+            selected={tipo === 'entrada'}
+            onPress={() => {setTipo('entrada'); Keyboard.dismiss()}}
+          />
+          <CustomRadioButton
+            flex={true}
+            label="Saída"
+            value="saida"
+            selected={tipo === 'saida'}
+            onPress={() => {setTipo('saida'); Keyboard.dismiss()}}
+          />
+        </View>
+
+        {/*Nome*/}
+        <TextInput 
+          style={modal.input} 
+          placeholder='Nome da transação' 
+          value={nome} 
+          onChangeText={setNome} />
+
+        {/*Forma de pagamento*/}
+        <View style={[modal.input, {justifyContent: 'center'}]}>
+          <Picker
+            selectedValue={pagamento}
+            onValueChange={(itemValue) => setPagamento(itemValue)}
+          >
+            <Picker.Item label="Pix" value="pix" />
+            <Picker.Item label="Cartão" value="cartao" />
+            <Picker.Item label="Dinheiro" value="dinheiro" />
+          </Picker>
+        </View>
+
+        {/*Valor Bruto*/}
+        <View style={modal.container_percent}>
+          <Text style={[modal.percentSymbol, {color: 'black'}]}>R$</Text>
+          <TextInput 
+            style={modal.input_percent}  
+            value={texto} 
+            onChangeText={mudarValor} 
+            keyboardType='decimal-pad'/>  
+        </View>
+
+        {/*Doutor responsável (se houver)*/}
+        {tipo === "entrada" ? 
+          <View style={[modal.input, {justifyContent: 'center'}]}>
+            <Picker
+              selectedValue={doutor}
+              onValueChange={(itemValue) => setDoutor(itemValue)}
+            >
+              <Picker.Item label="Sem doutor responsável" value="" />
+              {dentistas.map((item) => (
+                <Picker.Item
+                  key={item.id}
+                  label={item.nome}
+                  value={item.id} 
+                />
+              ))}
+            </Picker>
+          </View>
+          :
+          <View style={{height: 50, marginVertical: 5,}}>  
+          </View> 
+        }
+
+        {/*Botão de salvar*/}
+        <TouchableOpacity style={modal.botao} onPress={salvar}>
+          <Text style={modal.texto}>Salvar</Text>
+        </TouchableOpacity>  
+      
+      </View>
+      </Modal>
     </>
-   
+  
   );
 }
 
@@ -213,23 +719,73 @@ const styles = StyleSheet.create({
   },
 
   cel: {
-    width: 100, 
+    width: 130, 
     paddingHorizontal: 4,
     fontSize: 12,
   },
+
+  cel_header: {
+    width: 130, 
+    paddingHorizontal: 4,
+    fontSize: 13,
+    fontWeight: 'bold',
+  },
+
   header: { 
     backgroundColor: "#ddd" ,
   },
+
   footer: { 
     flexDirection: "row", 
     backgroundColor: '#F0C10C', 
     padding: 10 
   },
+
   total: {
-    width: 100,
+    width: 130,
     padding: 6,
     fontWeight: "bold",
     backgroundColor: '#F0C10C',
     color: 'white'
-}
+  },
+
+  filtroContainer:{
+    paddingVertical:10,
+    gap: 8,
+  },
+
+  linhaPickers: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 5,
+    marginVertical: 10
+  },
+
+  pickerMes: {
+    flex: 4,
+    backgroundColor: '#F0C10C',
+    borderRadius: 12,
+    overflow: 'hidden',
+    height: 50,
+    justifyContent: 'center'
+  },
+
+  pickerAno: {
+    flex: 3,
+    backgroundColor: '#F0C10C',
+    borderRadius: 12,
+    overflow: 'hidden',
+    height: 50,
+    justifyContent: 'center'
+  },
+
+  botao: {
+    flex: 2, 
+    height: 50,
+    backgroundColor: '#F0C10C',
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center'
+  }
 });

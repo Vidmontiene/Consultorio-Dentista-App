@@ -5,12 +5,13 @@ import { db } from "../firebaseConfig";
 export interface LinhaRelatorio {
   id: string;
   nome: string;
+  tipo : string;
   criadoPor: string;
   data: string;
-  tipo: string;
+  entrada: number;
+  saida: number;
   formaPagamento: string;
   idDoutor: string;
-  valorBruto: number;
   valorDoutor: number;
   valorCartao: number;
   valorClinica: number;
@@ -18,10 +19,13 @@ export interface LinhaRelatorio {
 
 // Interface do total
 export interface Totais {
-  bruto: number;
+  saldo: number;
+  entrada : number;
+  saida: number;
   doutor: number;
   cartao: number;
   clinica: number;
+  caixa: number;
 }
 
 type RelatorioSnapshot = {
@@ -35,7 +39,7 @@ export const escutarRelatorio = (callback: (dados: RelatorioSnapshot) => void) =
   const unsubscribe = onSnapshot(collection(db, "transacao"), (snapshot) => {
 
     const linhas: LinhaRelatorio[] = [];
-    const totais: Totais = { bruto: 0, doutor: 0, cartao: 0, clinica: 0 };
+    const totais: Totais = { saldo: 0, doutor: 0, cartao: 0, clinica: 0, entrada: 0, saida: 0, caixa: 0 };
 
     snapshot.forEach(doc => {
       const d = doc.data();
@@ -45,10 +49,11 @@ export const escutarRelatorio = (callback: (dados: RelatorioSnapshot) => void) =
         nome: d.nome,
         criadoPor: d.criadoPor,
         data: d.data?.toDate().toLocaleDateString("pt-BR"),
-        tipo: d.tipo,
+        entrada: d.tipo === 'entrada' ? d.valorBruto : 0,
+        saida: d.tipo === 'saida' ? d.valorBruto : 0,
         formaPagamento: d.formaPagamento,
         idDoutor: d.idDoutor,
-        valorBruto: d.valorBruto ?? 0,
+        tipo: d.tipo,
         valorDoutor: d.valorDoutor ?? 0,
         valorCartao: d.valorCartao ?? 0,
         valorClinica: d.valorClinica ?? 0
@@ -56,11 +61,22 @@ export const escutarRelatorio = (callback: (dados: RelatorioSnapshot) => void) =
 
       linhas.push(linha);
 
-      totais.bruto += linha.valorBruto;
+      totais.entrada += linha.entrada;
+      totais.saida += linha.saida;
       totais.doutor += linha.valorDoutor;
       totais.cartao += linha.valorCartao;
-      totais.clinica += linha.valorClinica;
+
+      if (linha.formaPagamento === "dinheiro" && linha.tipo === 'entrada') {
+        totais.caixa += linha.entrada
+      }
+      else if (linha.formaPagamento === "dinheiro" && linha.tipo === 'saida') {
+        totais.caixa -= linha.saida
+      }
+
+      totais.clinica = linha.tipo === "entrada" ? totais.clinica + linha.valorClinica : totais.clinica - linha.valorClinica;
     });
+
+    totais.saldo = totais.entrada = totais.saida
 
     callback({ linhas, totais });
   });

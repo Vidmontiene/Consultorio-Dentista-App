@@ -12,6 +12,17 @@ export const getTaxaCartao = async () => {
   return "";
 };
 
+// Pega o Caixa
+export const getCaixa = async () => {
+  const docRef = doc(db, "caixa", 'geral');
+  const docSnap = await getDoc(docRef);
+  if (docSnap.exists()){
+    const dados = docSnap.data();
+    return dados.valor;
+  }
+  return "";
+};
+
 // Pega porcentagem do dentista com base no id
 export const getPorcentagemDentista = async ( id : string ) => {
   const docRef = doc(db, "usuario", id);
@@ -45,30 +56,53 @@ export const getRole = async() => {
 
 };
 
-const cache: Record<string, string> = {};
-export const getNomeCache = async (id: string, buscar: (id: string) => Promise<string>) => {
+// Pega nome do usuário logado
+export const getNome = async() => {
+  const id = await getIdLogado();
+  const docRef = doc(db, "usuario", id);
+  const docSnap = await getDoc(docRef);
+  if (docSnap.exists()){
+    const dados = docSnap.data();
+    return dados.nome;
+  }
+  return "";
 
-    // já existe em memória
-    if (cache[id]) return cache[id];
-
-    // busca no banco
-    const nome = await buscar(id);
-
-    cache[id] = nome;
-    return nome;
 };
 
-export const getNomeBanco = async (id?: string): Promise<string> => {
+// Define o cache
+type UsuarioCache = {
+  nome: string;
+  porcentagem: number;
+};
 
-  if (!id) return "—";
+const cacheUsuarios: Record<string, UsuarioCache> = {};
+
+export const getUsuarioBanco = async (id?: string): Promise<UsuarioCache> => {
+
+  if (!id) return { nome: "", porcentagem: 0 };
 
   const docRef = doc(db, "usuario", id);
   const docSnap = await getDoc(docRef);
 
-  if (!docSnap.exists()) return "—";
+  if (!docSnap.exists())
+    return { nome: "", porcentagem: 0 };
 
   const dados = docSnap.data();
-  return dados.nome ?? "—";
+
+  return {
+    nome: dados.nome ?? "",
+    porcentagem: dados.porcentagem ?? 0
+  };
+};
+
+export const getUsuarioCache = async (id: string) => {
+
+  if (cacheUsuarios[id]) return cacheUsuarios[id];
+
+  const usuario = await getUsuarioBanco(id);
+
+  cacheUsuarios[id] = usuario;
+  return usuario;
 };
 
 
