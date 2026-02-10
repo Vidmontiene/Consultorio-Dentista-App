@@ -1,6 +1,6 @@
 import { signInWithEmailAndPassword } from '@firebase/auth';
 import { useState } from 'react';
-import { StyleSheet, View, Text, TextInput, TouchableOpacity } from 'react-native';
+import { StyleSheet, View, Text, TextInput, TouchableOpacity, Alert, Keyboard } from 'react-native';
 import { autenticacao } from "../firebaseConfig";
 
 export default function Index() {
@@ -10,12 +10,56 @@ export default function Index() {
 
   // Loga o usuário
   const logar = async() => {
+
     try{
       const usuario = await signInWithEmailAndPassword(autenticacao, email, senha);
     }
+
     catch ( error:any ){
       console.log(error);
-      alert(`Login falhou: ${error.message}`);
+      let titulo = "Erro";
+      let msg = error.code;
+      let e = error.code;
+
+      // Tratamento de erros
+      switch (e) {
+        case 'auth/invalid-email':
+          titulo = "Email inválido";
+          msg = "Verifique se escreveu o email corretamente.";
+          break;
+
+        case 'auth/too-many-requests':
+          titulo = "Muitas tentativas erradas";
+          msg = "Aguarde um pouco para tentar novamente.";
+          break;
+
+        case 'auth/network-request-failed':
+          titulo = "Erro de conexão";
+          msg = "Verifique sua conexão com a internet."   
+          break;
+        
+        case 'auth/wrong-password': 
+          titulo = "Senha incorreta";
+          msg = "Verifique se digitou a senha corretamente.";
+          break;
+
+        case 'auth/invalid-credential':
+          titulo = "Email ou senha incorretos";
+          msg = "Verifique se digitou as informações corretamente.";
+          break;
+
+        case 'auth/user-disabled':
+          titulo = "Conta desativada";
+          msg = "Essa conta não existe mais.";
+          break;    
+
+        case 'auth/user-not-found':
+          titulo = "Usuário não encontrado";
+          msg = "Não existe conta com essas informações.";
+          break;    
+
+      }
+      Alert.alert(titulo, msg);
     }
   }
 
@@ -37,7 +81,7 @@ export default function Index() {
         secureTextEntry 
         autoCapitalize="none"/>
 
-      <TouchableOpacity style={styles.botao} onPress={logar}>
+      <TouchableOpacity style={styles.botao} onPress={async() => {logar(), Keyboard.dismiss()}}>
         <Text style={styles.texto}>Login</Text>
       </TouchableOpacity>
 

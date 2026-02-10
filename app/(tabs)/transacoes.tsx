@@ -1,10 +1,11 @@
-import { StyleSheet, TouchableOpacity, View, Text, Modal, TextInput } from 'react-native';
+import { StyleSheet, TouchableOpacity, View, Text, Modal, TextInput, Keyboard, Platform, Alert } from 'react-native';
 import { db } from "../../firebaseConfig";
 import * as banco from "@/scripts/banco";
 import { Picker } from '@react-native-picker/picker';
 import { modal } from '@/estilos/modal';
 import { useEffect, useState } from 'react';
-import { addDoc, collection, doc, onSnapshot, orderBy, query, serverTimestamp, setDoc, where } from 'firebase/firestore';
+import { addDoc, collection, doc, onSnapshot, orderBy, query, serverTimestamp, setDoc, Timestamp, where } from 'firebase/firestore';
+import DateTimePicker from "@react-native-community/datetimepicker";
 
 export default function Transacoes() {
 
@@ -14,11 +15,14 @@ export default function Transacoes() {
   const [pagamento, setPagamento] = useState('pix');
   const [nome, setNome] = useState('');
   const [valor, setValor] = useState(0);
+  const [data, setData] = useState<Date | null>(new Date());
 
   const [doutor, setDoutor] = useState('');
 
   const [dentistas, setDentistas] = useState<any[]>([]);
   const [texto, setTexto] = useState('0,00');
+
+  const [showData, setShowData] = useState(false); 
 
   // Lida com mudanças na moeda
   const mudarValor = ( moeda: string ) => {
@@ -41,6 +45,13 @@ export default function Transacoes() {
     });
 
     setTexto(formatado);
+  };
+
+  // Lida com mudança na data 
+  const onChange = (event: any, dataSelecionada: any) => {
+    const dataAtual = dataSelecionada || data;
+    setShowData(false);
+    setData(dataAtual);
   };
 
   // Carrega doutores
@@ -76,14 +87,17 @@ export default function Transacoes() {
     setValor(0);
     setDoutor('');
     setTexto('0,00');
+    setData(new Date());
   };
 
   // Salva entrada
   const salvarTransacao = async( tipo: string ) => {
     try{
       
+      let nomeT = nome.trim();
+
       // Não permite vazio
-      if ( !nome || valor === 0 ) {
+      if ( !nomeT || valor === 0 || data === null ) {
         alert("Preencha todos os campos");
         return;
       }
@@ -113,12 +127,12 @@ export default function Transacoes() {
 
       // Cadastra no db
       await addDoc(collection(db, "transacao"), {
-        nome: nome,
+        nome: nomeT,
         formaPagamento: pagamento,
         criadoPor: id,
         tipo: tipo,
         valorBruto: valor,
-        data: serverTimestamp(),
+        data: Timestamp.fromDate(data),
         idDoutor: doutor,
         valorClinica: valorClinica,
         valorDoutor: valorDoutor,
@@ -140,11 +154,11 @@ export default function Transacoes() {
         }
       }
 
-      alert(`Registro ${nome} criado com suceso!`);
+      Alert.alert(`Registro ${nomeT} criado com suceso!`, "As informações foram salvas.");
     }
     catch ( error:any ){
       console.log(error);
-      alert(`Criação falhou: ${error.message}`);
+      alert(`Criação falhou`);
     }
 
     zerarUseStates();
@@ -174,6 +188,21 @@ export default function Transacoes() {
           placeholder='Nome da transação' 
           value={nome} 
           onChangeText={setNome} />
+
+        {/*Data*/}
+        <TouchableOpacity style={[modal.input, {justifyContent: 'center'}]} onPress={() => {setShowData(true), Keyboard.dismiss()}}>
+          <Text style={[modal.txt_data, data? { color: 'black'} : {color: '#6d6c6c'}]}>
+            {data ? data.toLocaleDateString("pt-BR") : "Data da transação"}
+          </Text>
+        </TouchableOpacity>
+        {showData && Platform.OS === 'android' && (
+          <DateTimePicker
+            value={data || new Date()}
+            mode="date"
+            display="default"
+            onChange={onChange}
+          />
+        )}
 
         {/*Forma de pagamento*/}
         <View style={[modal.input, {justifyContent: 'center'}]}>
@@ -233,6 +262,21 @@ export default function Transacoes() {
           value={nome} 
           onChangeText={setNome} />
 
+        {/*Data*/}
+        <TouchableOpacity style={[modal.input, {justifyContent: 'center'}]} onPress={() => {setShowData(true), Keyboard.dismiss()}}>
+          <Text style={[modal.txt_data, data? { color: 'black'} : {color: '#6d6c6c'}]}>
+            {data ? data.toLocaleDateString("pt-BR") : "Data da transação"}
+          </Text>
+        </TouchableOpacity>
+        {showData && Platform.OS === 'android' && (
+          <DateTimePicker
+            value={data || new Date()}
+            mode="date"
+            display="default"
+            onChange={onChange}
+          />
+        )}
+
         {/*Forma de pagamento*/}
         <View style={[modal.input, {justifyContent: 'center'}]}>
           <Picker
@@ -264,7 +308,6 @@ export default function Transacoes() {
       </View>
       </Modal>
 
-
     </View>
   );
 }
@@ -295,5 +338,6 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontSize: 17
   },
+
 
 });

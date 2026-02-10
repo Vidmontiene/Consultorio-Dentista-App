@@ -84,4 +84,9 @@ export const modal = StyleSheet.create({
     width: "90%", 
   },
 
+  txt_data:{
+    paddingLeft: 5,
+    fontSize: 16,
+  },
+
 })

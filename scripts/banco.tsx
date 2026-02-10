@@ -1,5 +1,5 @@
 import { autenticacao, db } from "@/firebaseConfig";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, getDoc, runTransaction } from "firebase/firestore";
 
 // Pega taxa do cartão
 export const getTaxaCartao = async () => {
@@ -74,6 +74,20 @@ type UsuarioCache = {
   nome: string;
   porcentagem: number;
 };
+
+// Atualiza o caixa
+export async function atualizarCaixa(delta: number) {
+  const ref = doc(db, "caixa", "geral");
+
+  await runTransaction(db, async (transaction) => {
+    const snap = await transaction.get(ref);
+
+    const atual = snap.data()?.valor || 0;
+    transaction.update(ref, { 
+      valor: atual + delta 
+    });
+  });
+}
 
 const cacheUsuarios: Record<string, UsuarioCache> = {};
 

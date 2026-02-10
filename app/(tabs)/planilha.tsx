@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { View, Text, FlatList, StyleSheet, ScrollView, SectionList, TouchableOpacity, Alert, Modal, TextInput, Keyboard } from "react-native";
+import { View, Text, FlatList, StyleSheet, ScrollView, SectionList, TouchableOpacity, Alert, Modal, TextInput, Keyboard, Platform } from "react-native";
 import { escutarRelatorio, LinhaRelatorio, Totais } from "@/scripts/relatorio";
 import { Picker } from '@react-native-picker/picker';
 import * as banco from "@/scripts/banco";
@@ -7,10 +7,11 @@ import { exportarRelatorioExcel } from "@/scripts/exportarExcel";
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { db } from "@/firebaseConfig";
-import { collection, deleteDoc, doc, onSnapshot, orderBy, query, setDoc, updateDoc, where } from "firebase/firestore";
+import { collection, deleteDoc, doc, onSnapshot, orderBy, query, runTransaction, serverTimestamp, setDoc, Timestamp, updateDoc, where } from "firebase/firestore";
 import { useFocusEffect } from "expo-router";
 import { modal } from "@/estilos/modal";
 import { CustomRadioButton } from "@/estilos/radioButton";
+import DateTimePicker from "@react-native-community/datetimepicker";
 
 export default function RelatorioScreen() {
 
@@ -37,14 +38,37 @@ export default function RelatorioScreen() {
   const [tipo, setTipo] = useState('')
   const [nome, setNome] = useState('');
   const [valor, setValor] = useState(0);
-  const [data, setData] = useState('');
+  const [data, setData] = useState<Date | null>(null);
   const [texto, setTexto] = useState('0,00');
   const [doutor, setDoutor] = useState('');
   const [id, setId] = useState('');
 
+  // Cópias para caixa
+  const [pagamentoCopy, setPagamentoCopy] = useState('pix');
+  const [valorClinicaCopy, setValorClinicaCopy] = useState(0);
+  const [tipoCopy, setTipoCopy] = useState('');
+
   const [editar, setEditar] = useState(false);
+  const [showData, setShowData] = useState(false); 
 
   const [dentistas, setDentistas] = useState<any[]>([]);
+
+  type RelatorioSnapshot = {
+    linhas: LinhaRelatorio[];
+    totais: Totais;
+  };
+
+  type UsuarioInfo = {
+    nome: string;
+    porcentagem: number;
+  };
+
+  // Lida com mudança na data 
+  const onChange = (event: any, dataSelecionada: any) => {
+    const dataAtual = dataSelecionada || data;
+    setShowData(false);
+    setData(dataAtual);
+  };
 
   // Lida com mudanças na moeda
   const mudarValor = ( moeda: string ) => {
@@ -70,25 +94,41 @@ export default function RelatorioScreen() {
   };
 
   // Preenche os states do registro clicado
-  const preencherStates = (item: LinhaRelatorio) => {
+  const preencherStates = async (item: LinhaRelatorio) => {
     setNome(item.nome);
     setValor(item.entrada != 0 ? item.entrada : item.saida);
     setTexto(item.entrada != 0 ? String(item.entrada) : String(item.saida));
     setPagamento(item.formaPagamento);
-    setData(item.data);
+    setData(item.data.toDate());
     setId(item.id);
     setTipo(item.tipo);
     setDoutor(item.idDoutor);
+
+     //Para o caixa
+    setValorClinicaCopy(item.valorClinica);
+    setTipoCopy(item.tipo);
+    setPagamentoCopy(item.formaPagamento);
+
+    // Abre modal de editar
+    setEditar(true);
   };
 
   // Salva as mudanças
   const salvar = async() => {
     try {
 
+      let nomeT = nome.trim();
+
       // Não permite vazio
-      if ( !nome || valor === 0 ) {
+      if ( !nomeT || valor === 0 ) {
         alert("Preencha todos os campos");
         return;
+      }
+
+      // Tira caixa antigo 
+      if (pagamentoCopy === "dinheiro") {
+        const delta = tipoCopy === "entrada" ? -valorClinicaCopy : +valorClinicaCopy;
+        await banco.atualizarCaixa(delta);
       }
 
       let valorDoutor = 0;
@@ -111,51 +151,78 @@ export default function RelatorioScreen() {
       // Separa o valor da clínica
       const  valorClinica = aposCartao - valorDoutor;
 
+      // Põe no DB
       const ref = doc(db, "transacao", id);
       await updateDoc(ref, {
-        nome: nome,
+        nome: nomeT,
         formaPagamento: pagamento,
         idDoutor: doutor,
         tipo: tipo,
+        data: data ? Timestamp.fromDate(data) : serverTimestamp(),
         valorBruto: valor,
+        valorDoutor: valorDoutor,
         valorCartao: valorCartao,
         valorClinica: valorClinica
       });
 
       // Coloca no caixa
-      if (pagamento === "dinheiro"){
-        const atual = await banco.getCaixa();
-        if (tipo === 'entrada'){
-          await setDoc(doc(db, "caixa", "geral"),{
-            valor: atual + valorClinica
-          })
-        }
-        else{
-          await setDoc(doc(db, "caixa", "geral"),{
-            valor: atual - valorClinica
-          })       
-        }
+      if (pagamento === "dinheiro") {
+        const delta = tipo === "entrada" ? +valorClinica : -valorClinica;
+        await banco.atualizarCaixa(delta);
         await carregarCaixa();
       }
 
-      alert("Registro atualizado!");
+      Alert.alert("Registro atualizado!", `${nomeT} foi atualizado.`);
 
-    } catch (error) {
+    } 
+    catch (error) {
       console.log(error);
       alert("Erro ao atualizar");
     }
-
     setEditar(false);
   };
 
-  type RelatorioSnapshot = {
-    linhas: LinhaRelatorio[];
-    totais: Totais;
+  // Confirma se quer mesmo deletar
+  const confirmarDelete = (item : LinhaRelatorio) => {
+
+    Alert.alert(
+      `Deletar "${item.nome}?"`, 
+      "Essa ação não poderá ser revertida.",
+      [
+        {
+          text: "Cancelar",
+          style: "cancel"
+        },
+        {
+          text: "Deletar",
+          style: "destructive",
+          onPress: () => deletar(item)
+        }
+      ],
+      { cancelable: true }
+    );
   };
 
-  type UsuarioInfo = {
-    nome: string;
-    porcentagem: number;
+  // Deleta registro
+  const deletar = async (item: LinhaRelatorio) => {
+      try {
+        // Deleta o registro
+        await deleteDoc(doc(db, "transacao", item.id));
+
+        // Tira caixa antigo 
+        if (item.formaPagamento === "dinheiro") {
+          const delta = tipoCopy === "entrada" ? -item.valorClinica : +item.valorClinica;
+          await banco.atualizarCaixa(delta);
+          await carregarCaixa();
+        }
+
+        Alert.alert("Registro deletado!", `${nome} foi deletado.`);
+
+      } 
+      catch (error) {
+        console.log(error);
+        alert("Erro ao deletar registro");
+      }
   };
 
   const meses = [
@@ -163,24 +230,16 @@ export default function RelatorioScreen() {
     "Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"
   ];
 
-  const dataParaDate = (data: string) => {
-    const [dia, mes, ano] = data.split("/").map(Number);
-    return new Date(ano, mes - 1, dia);
-  };
-
   // anos baseados nos dados existentes
   const anosDisponiveis = [
     ...new Set(
       linhas
         .map(l => {
-          if (!l.data || typeof l.data !== "string") return null;
+          if (!l.data) return null;
 
-          const partes = l.data.split("/");
-          if (partes.length !== 3) return null;
-
-          return Number(partes[2]);
+          return l.data.toDate().getFullYear();
         })
-        .filter((ano): ano is number => !!ano)
+        .filter((ano): ano is number => ano !== null)
     )
   ];
 
@@ -199,20 +258,26 @@ export default function RelatorioScreen() {
 
   // Pega as linhas do mes e ano selecionados
   const linhasFiltradas = linhas
-    .filter(l => {
-      if (!l.data || !l.data.includes("/")) return false;
-      const [dia, mes, ano] = l.data.split("/").map(Number);
-      return mes === mesSelecionado && ano === anoSelecionado;
-    })
-    .sort((a, b) => dataParaDate(a.data).getTime() - dataParaDate(b.data).getTime());
+  .filter(l => {
+    if (!l.data) return false;
+
+    const d = l.data.toDate();
+    const mes = d.getMonth() + 1;
+    const ano = d.getFullYear();
+
+    return mes === mesSelecionado && ano === anoSelecionado;
+  })
+  .sort((a, b) => a.data.toMillis() - b.data.toMillis());
 
   // Pega as linhas do mes anterior
-  const linhasMesAnterior = linhas
-    .filter(l => {
-      if (!l.data || !l.data.includes("/")) return false;
+  const linhasMesAnterior = linhas.filter(l => {
+    if (!l.data) return false;
 
-      const [dia, mes, ano] = l.data.split("/").map(Number);
-      return mes === mesAnteriorNumero && ano === anoAnteriorNumero;
+    const d = l.data.toDate();
+    const mes = d.getMonth() + 1;
+    const ano = d.getFullYear();
+
+    return mes === mesAnteriorNumero && ano === anoAnteriorNumero;
   });
 
   // Totais do mes anterioir
@@ -241,7 +306,7 @@ export default function RelatorioScreen() {
       entrada: l.tipo === "entrada" ? acc.entrada + l.entrada : acc.entrada,
       caixa: l.tipo === 'entrada' && l.formaPagamento === 'dinheiro' ?
         acc.caixa + l.valorClinica : l.tipo === 'saida' && l.formaPagamento === 'dinheiro' ?
-        acc.caixa - l.valorClinica : acc.caixa,
+        acc.caixa - l.valorClinica: acc.caixa,
       saida: l.tipo === "saida" ? acc.saida + l.saida : acc.saida,
       saldo: l.tipo === "entrada" ? acc.saldo + l.entrada : acc.saldo - l.saida,
       cartao: acc.cartao + l.valorCartao,
@@ -380,63 +445,13 @@ export default function RelatorioScreen() {
     }
   };
 
-  // Confirma se quer mesmo deletar
-  const confirmarDelete = (item : LinhaRelatorio) => {
-
-    Alert.alert(
-      `Deletar "${item.nome}?"`, 
-      "Essa ação não poderá ser revertida.",
-      [
-        {
-          text: "Cancelar",
-          style: "cancel"
-        },
-        {
-          text: "Deletar",
-          style: "destructive",
-          onPress: () => deletar(item)
-        }
-      ],
-      { cancelable: true }
-    );
-  };
-
-  // Deleta usuário
-    const deletar = async (item: LinhaRelatorio) => {
-      try {
-        await deleteDoc(doc(db, "transacao", item.id));
-
-        if (item.formaPagamento === "dinheiro"){
-          const atual = await banco.getCaixa();
-          if (item.tipo === "entrada"){
-            await setDoc(doc(db, "caixa", "geral"),{
-              valor: atual - item.entrada
-            })
-          }
-          else{
-            await setDoc(doc(db, "caixa", "geral"),{
-              valor: atual + item.saida
-            })
-          }
-          await carregarCaixa();
-        }
-
-        alert("Registro deletado!");
-
-      } catch (error) {
-        console.log(error);
-        alert("Erro ao deletar registro");
-      }
-
-  };
-
   // Renderiza as linhas
   const renderItem = ({ item }: { item: LinhaRelatorio }) => (
     <View style={styles.row}>
 
       <Text style={styles.cel}>{item.nome}</Text>
 
-      <Text style={styles.cel}>{item.data}</Text>
+      <Text style={styles.cel}>{item.data.toDate().toLocaleDateString("pt-BR")}</Text>
 
       <Text style={styles.cel}>
         {nomesUsuarios[item.criadoPor]?.nome ?? "—"}
@@ -475,7 +490,7 @@ export default function RelatorioScreen() {
         `R$ -${item.valorClinica.toFixed(2)}` 
       }</Text>
 
-      <TouchableOpacity style={styles.cel} onPress={() => {preencherStates(item), setEditar(true)}}>
+      <TouchableOpacity style={styles.cel} onPress={async () => await preencherStates(item)}>
         <MaterialIcons name="edit" size={24} color="black" />
       </TouchableOpacity>
 
@@ -553,7 +568,7 @@ export default function RelatorioScreen() {
               <Text style={styles.cel_header}>Data</Text>
               <Text style={styles.cel_header}>Criado por</Text>
               <Text style={styles.cel_header}>Entrada</Text>
-              <Text style={styles.cel_header}>Saida</Text>
+              <Text style={styles.cel_header}>Saída</Text>
               <Text style={styles.cel_header}>Forma</Text>
 
               {dentistasLista.map(id => {
@@ -594,7 +609,7 @@ export default function RelatorioScreen() {
                 </Text> 
 
                 <Text style={styles.total}>
-                  {`Saida: \nR$ ${totaisFiltrados.saida.toFixed(2)}`} 
+                  {`Saída: \nR$ -${totaisFiltrados.saida.toFixed(2)}`} 
                 </Text>        
 
                 <Text style={styles.total}>
@@ -652,6 +667,21 @@ export default function RelatorioScreen() {
           placeholder='Nome da transação' 
           value={nome} 
           onChangeText={setNome} />
+
+        {/*Data*/}
+        <TouchableOpacity style={[modal.input, {justifyContent: 'center'}]} onPress={() => {setShowData(true), Keyboard.dismiss()}}>
+          <Text style={[modal.txt_data, data? { color: 'black'} : {color: '#6d6c6c'}]}>
+            {data ? data.toLocaleDateString("pt-BR") : "Data da transação"}
+          </Text>
+        </TouchableOpacity>
+        {showData && Platform.OS === 'android' && (
+          <DateTimePicker
+            value={data || new Date()}
+            mode="date"
+            display="default"
+            onChange={onChange}
+          />
+        )}
 
         {/*Forma de pagamento*/}
         <View style={[modal.input, {justifyContent: 'center'}]}>

@@ -1,4 +1,4 @@
-import { collection, getDocs, onSnapshot } from "firebase/firestore";
+import { collection, getDocs, onSnapshot, Timestamp } from "firebase/firestore";
 import { db } from "../firebaseConfig";
 
 // Interface das linhas
@@ -7,7 +7,7 @@ export interface LinhaRelatorio {
   nome: string;
   tipo : string;
   criadoPor: string;
-  data: string;
+  data: Timestamp;
   entrada: number;
   saida: number;
   formaPagamento: string;
@@ -48,7 +48,7 @@ export const escutarRelatorio = (callback: (dados: RelatorioSnapshot) => void) =
         id: doc.id,
         nome: d.nome,
         criadoPor: d.criadoPor,
-        data: d.data?.toDate().toLocaleDateString("pt-BR"),
+        data: d.data as Timestamp,
         entrada: d.tipo === 'entrada' ? d.valorBruto : 0,
         saida: d.tipo === 'saida' ? d.valorBruto : 0,
         formaPagamento: d.formaPagamento,

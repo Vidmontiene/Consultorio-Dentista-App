@@ -1,11 +1,12 @@
-import { Platform, StyleSheet, View, Text, TouchableOpacity, Modal, TextInput, Keyboard, Alert } from 'react-native';
+import { Platform, StyleSheet, View, Text, TouchableOpacity, Modal, TextInput, Keyboard, Alert, ScrollView } from 'react-native';
 import { modal } from '@/estilos/modal';
 import { CustomRadioButton } from '@/estilos/radioButton';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import FontAwesome5 from '@expo/vector-icons/FontAwesome5';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useEffect, useState } from 'react';
-import { createUserWithEmailAndPassword, onAuthStateChanged } from '@firebase/auth';
+import { createUserWithEmailAndPassword, EmailAuthProvider, onAuthStateChanged, reauthenticateWithCredential, updatePassword } from '@firebase/auth';
 import { doc, setDoc, serverTimestamp, getDoc } from "firebase/firestore";
 import { secondaryAuth } from "@/scripts/secondaryauth";
 import { db } from '@/firebaseConfig';
@@ -19,6 +20,7 @@ export default function Configuracoes() {
   // Modais
   const [add, setAdd] = useState(false);
   const [taxa, setTaxa] = useState(false);
+  const [alterarSenha, setAlterarSenha] = useState(false);
 
   // Valores
   const [nome, setNome] = useState('');
@@ -32,9 +34,13 @@ export default function Configuracoes() {
   const [cargoUsuario, setCargoUsuario] = useState("");
   const [cartao, setCartao] = useState("");
 
+  // Para trocar a senha
+  const [novaSenha, setNovaSenha] = useState('');
+
   // Zera os dados
   const zerarUseStates = () => {
     setNome('');
+    setNovaSenha('');
     setEmail('');
     setSenha('');
     setPorcent('');
@@ -74,17 +80,19 @@ export default function Configuracoes() {
 
   // Cadastra novo usuário
   const salvarUsu = async() => {
-
     try{
 
+      let nomeT = nome.trim();
+      let emailT = email.trim();
+
       // Não permite vazio
-      if (!email || !senha || !nome || (checked === 1 && !porcent)) {
-        alert("Preencha todos os campos");
+      if (!emailT || !senha || !nomeT || (checked === 1 && !porcent)) {
+        Alert.alert("Preencha todos os campos", "Existem campos vazios.");
         return;
       }
 
       // Cria conta e pega uid
-      const usuario = await createUserWithEmailAndPassword(secondaryAuth, email, senha);
+      const usuario = await createUserWithEmailAndPassword(secondaryAuth, emailT, senha);
       const uid = usuario.user.uid;
 
       // Define cargo
@@ -95,21 +103,64 @@ export default function Configuracoes() {
 
       // Cadastra no db
       await setDoc(doc(db, "usuario", uid), {
-        nome: nome,
-        email: email,
+        nome: nomeT,
+        email: emailT,
         role: cargo,
         porcentagem: checked === 1 ? Number(porcent) : 0,
         criadoEm: serverTimestamp(),
         uid: uid
       });
 
-      alert(`Usuário ${nome} criado com sucesso!`);
+      Alert.alert("Usuário adicionado", `A conta de ${nomeT} foi criada com sucesso!`);
       zerarUseStates();
-      setAdd(false);  // Fecha modal
+      setAdd(false);
     }
+
     catch ( error:any ){
       console.log(error);
-      alert(`Criação falhou: ${error.message}`);
+      let titulo = "Erro";
+      let msg = error.code;
+      let e = error.code;
+
+      // Tratamento de erro
+      switch (e){
+        case "auth/email-already-in-use":
+          titulo = "Email inválido";
+          msg = "Este email já está em uso.";
+          break;
+
+        case "auth/invalid-email":
+          titulo = "Email inválido";
+          msg = "Verifique se escreveu o email corretamente.";
+          break;
+
+        case "auth/weak-password":
+          titulo = "Senha muito curta";
+          msg = "A senha deve ter pelo menos 6 caracteres.";
+          break;
+
+        case "auth/missing-password":
+          titulo = "Digite uma senha";
+          msg = "A senha deve ter pelo menos 6 caracteres.";
+          break;
+
+        case "auth/too-many-requests":
+          titulo = "Muitas contas criadas pelo mesmo usuário";
+          msg = "tente novamente mais tarde.";
+          break;
+
+        case "auth/network-request-failed":
+          titulo = "Erro de conexão";
+          msg = "Verifique sua conexão com a internet."   
+          break;
+
+        case "permission-denied":
+          titulo = "Sem permissão"
+          msg = "Você não tem permissão para alterar este registro.";
+          break;
+      }
+
+      Alert.alert(titulo, msg);
     }
   }
 
@@ -123,11 +174,81 @@ export default function Configuracoes() {
     }
     catch (error : any){
       console.log(error);
-      alert(`Criação falhou: ${error.message}`);
+      Alert.alert(`Criação falhou`,  error.message);
     }
 
     setTaxa(false);
   }
+
+  // Reautentica para trocar a senha
+  const reautenticar = async () => {
+    const user = autenticacao.currentUser;
+    if (!user) return;
+
+    let emailT = email.trim();
+    const cred = EmailAuthProvider.credential(emailT, senha);
+    await reauthenticateWithCredential(user, cred);
+  };
+
+  // Troca senha do usuário cadastrado
+  const trocarSenha = async () => {
+    try {
+      await reautenticar();
+      const user = autenticacao.currentUser;
+
+      if (!user) {
+        Alert.alert("Usuário não autenticado", "Entre ou crie uma conta antes.");
+        return;
+      }
+
+      await updatePassword(user, novaSenha);
+      Alert.alert("Senha alterada com sucesso!", "Sua nova senha já está sendo utilizada.");
+
+      zerarUseStates();
+      setAlterarSenha(false);
+    } 
+    catch (error:any) {
+      console.log(error);
+      let titulo = "Erro";
+      let msg = error.code;
+      let e = error.code;
+
+      // Tratamento de erros
+      switch (e) {
+        case "auth/weak-password":
+          titulo = "Senha muito curta";
+          msg = "A senha deve ter pelo menos 6 caracteres.";
+          break;
+
+        case 'auth/user-disabled':
+          titulo = "Conta desativada";
+          msg = "Essa conta não existe mais.";
+          break;
+
+        case 'auth/network-request-failed':
+          titulo = "Erro de conexão";
+          msg = "Verifique sua conexão com a internet."   
+          break;
+        
+        case 'auth/wrong-password': 
+          titulo = "Senha incorreta";
+          msg = "Verifique se digitou a senha corretamente.";
+          break;
+
+        case 'auth/invalid-credential':
+          titulo = "Email ou senha incorretos";
+          msg = "Verifique se digitou as informações corretamente.";
+          break;
+
+        case 'auth/too-many-requests':
+          titulo = "Muitas tentativas erradas";
+          msg = "Aguarde um pouco para tentar novamente.";
+          break;    
+
+      }
+      Alert.alert(titulo, msg);
+    }
+  };
 
   // Pega o nome e cargo do usuário logado
   useEffect(() => {
@@ -147,6 +268,7 @@ export default function Configuracoes() {
   }, []);
 
   return (
+    <ScrollView style={{backgroundColor: '#fafafaff'}}>
     <View style={styles.container}>
 
       <Text style={styles.titulo}>Configurações</Text>
@@ -191,6 +313,16 @@ export default function Configuracoes() {
         <View style={botao.container_botao}>
           <Text style={botao.titulo_botao}>Editar Taxa do Cartão</Text>
           <Text style={botao.txt_botao}>{`Taxa atual: ${cartao}%`}</Text>
+        </View>
+        <MaterialIcons name="arrow-forward-ios" size={24} style={botao.seta} />
+      </TouchableOpacity>
+
+      {/*Alterar Senha*/}
+      <TouchableOpacity style={botao.botao}  onPress={() => setAlterarSenha(true)}>
+        <FontAwesome6 name="key" size={31} style={[botao.img]}/>
+        <View style={botao.container_botao}>
+          <Text style={botao.titulo_botao}>Alterar Senha</Text>
+          <Text style={botao.txt_botao}>Clique para alterar</Text>
         </View>
         <MaterialIcons name="arrow-forward-ios" size={24} style={botao.seta} />
       </TouchableOpacity>
@@ -298,7 +430,45 @@ export default function Configuracoes() {
       </View>
       </Modal>
 
+      {/*Modal de alterar senha*/}
+      <Modal 
+        animationType="fade" 
+        transparent visible={alterarSenha} 
+        onRequestClose={() => {setAlterarSenha(false), zerarUseStates()}}>
+        <View style={modal.fundo_modal}>
+
+        <TextInput 
+          style={modal.input} 
+          placeholder="Email" value={email} 
+          onChangeText={setEmail} 
+          keyboardType='email-address' 
+          autoCapitalize="none"/>
+
+        <TextInput 
+          style={modal.input} 
+          placeholder="Senha atual" 
+          value={senha} 
+          onChangeText={setSenha}  
+          secureTextEntry 
+          autoCapitalize="none"/>
+  
+        <TextInput 
+          style={modal.input} 
+          placeholder="Nova senha" 
+          value={novaSenha} 
+          onChangeText={setNovaSenha}  
+          secureTextEntry 
+          autoCapitalize="none"/>
+
+        <TouchableOpacity style={modal.botao} onPress={trocarSenha}>
+          <Text style={modal.texto}>Alterar</Text>
+        </TouchableOpacity>  
+
+      </View>
+      </Modal>
+
     </View>
+    </ScrollView>
   );
 }
 

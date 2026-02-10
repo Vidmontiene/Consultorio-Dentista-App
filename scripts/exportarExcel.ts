@@ -50,7 +50,7 @@ export async function exportarRelatorioExcel(
 
   const dados: LinhaExcel[] = linhas.map(l => ({
     Nome: l.nome,
-    Data: l.data,
+    Data: l.data.toDate().toLocaleDateString("pt-BR"),
     CriadoPor: nomesUsuarios[l.criadoPor].nome ?? "",
     Entrada: l.tipo === "entrada" ? l.entrada : "",
     Saida: l.tipo === "saida" ? -l.saida : "",

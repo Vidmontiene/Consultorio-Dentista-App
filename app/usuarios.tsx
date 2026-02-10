@@ -114,6 +114,14 @@ export default function usuarios() {
   const salvar = async () => {
 
     try {
+
+      let nomeT = nome.trim();
+
+      if (!nomeT || (checked === 1 && !porcent)){
+        Alert.alert("Preencha todos os campos", "Existem campos vazios.");
+        return;
+      }
+
       const ref = doc(db, "usuario", id);
 
       // Define cargo
@@ -123,16 +131,16 @@ export default function usuarios() {
       if (checked === 2) cargo = "admin";
 
       await updateDoc(ref, {
-        nome: nome,
-        email: email,
+        nome: nomeT,
         porcentagem: checked === 1 ? Number(porcent) : 0,
         role: cargo,
         uid: id
       });
 
-      alert("Usuário atualizado!");
+      Alert.alert("Usuário atualizado!", `Informações de ${nomeT} atualizadas`);
 
-    } catch (error) {
+    } 
+    catch (error) {
       console.log(error);
       alert("Erro ao atualizar");
     }
@@ -166,10 +174,11 @@ export default function usuarios() {
     try {
       await deleteDoc(doc(db, "usuario", id));
 
-      alert("Usuário deletado!");
+      Alert.alert("Usuário deletado!", `O usuário de nome ${nome} foi deletado`);
       setEditar(false);
 
-    } catch (error) {
+    } 
+    catch (error) {
       console.log(error);
       alert("Erro ao deletar usuário");
     }
@@ -244,14 +253,6 @@ export default function usuarios() {
           value={nome} 
           onChangeText={setNome} />
 
-        <TextInput 
-          style={modal.input} 
-          placeholder='Email' 
-          autoCapitalize="none"
-          value={email} 
-          keyboardType='email-address'
-          onChangeText={setEmail} />
-
         <CustomRadioButton
           label="Funcionário"
           flex={false}
@@ -305,6 +306,7 @@ export default function usuarios() {
 
       </View>
       </Modal>
+
     </View>
   );
 }
