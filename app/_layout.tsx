@@ -1,7 +1,9 @@
+import { autenticacao } from "@/firebaseConfig";
 import { useSession } from "@/hooks/useSession";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { useNavigationState } from "@react-navigation/native";
 import { Stack, router, useSegments } from "expo-router";
+import { onAuthStateChanged } from "firebase/auth";
 import { useEffect } from "react";
 import { StatusBar, TouchableOpacity, View, Text } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -57,6 +59,7 @@ export default function RootLayout() {
       router.replace("/(tabs)/transacoes");
     }
   }, [user, loading]);
+
 
   return (
     <SafeAreaView style={{flex: 1, backgroundColor: 'white'}}>

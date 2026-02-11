@@ -1,8 +1,29 @@
+import { serverTimestamp, Timestamp } from "firebase/firestore";
+
 // Formata timestamp em (DD/MM/AAAA às HH:MM)
-export const formatarData = (timestamp: any) => {
+export const formatarData = (timestamp: any, hora: boolean) => {
   if (!timestamp) return "";
 
   const data = timestamp.toDate();
-  return data.toLocaleDateString("pt-BR") + " às " +
-     data.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+
+  if (hora) {
+    return data.toLocaleDateString("pt-BR") + " às " +
+    data.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });  
+  }
+    return data.toLocaleDateString("pt-BR") 
 }
+
+export const resolverTimestamp = (valor: any) => {
+  if (!valor) return serverTimestamp();
+
+  // já é Timestamp do Firestore
+  if (valor instanceof Timestamp) return valor;
+
+  // veio do DatePicker
+  if (valor instanceof Date) return Timestamp.fromDate(valor);
+
+  // serverTimestamp ainda não resolvido
+  if (typeof valor === "object" && valor?.seconds !== undefined) return valor;
+
+  return serverTimestamp();
+};

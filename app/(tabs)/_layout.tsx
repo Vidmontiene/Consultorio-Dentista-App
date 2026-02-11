@@ -1,9 +1,22 @@
 import { Tabs } from 'expo-router';
-import React from 'react';
+import React, { useEffect, useState } from 'react';
+import * as banco from "@/scripts/banco";
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import AntDesign from '@expo/vector-icons/AntDesign';
+import Octicons from '@expo/vector-icons/Octicons';
 
 export default function TabLayout() {
+
+  const [role, setRole] = useState('');
+
+  // Carrega role
+  useEffect(() => {
+    const carregarRole = async () => {
+      const r = await banco.getRole();
+      setRole(r);
+    };
+    carregarRole();
+  }, []);
 
   return (
     <Tabs
@@ -36,7 +49,18 @@ export default function TabLayout() {
         name="planilha"
         options={{
           title: 'Planilha',
-          tabBarIcon: ({ color }) => <FontAwesome6 name="house" size={24} color={color} />,
+          tabBarIcon: ({ color }) => <FontAwesome6 name="chart-column" size={24} color={color} />,
+        }}
+      />
+      
+      <Tabs.Screen
+        name="pendentes"
+        options={{
+          title: 'Pendentes',
+          href: role === "admin" ? undefined : null,
+          tabBarIcon: ({ color }) => (
+            <Octicons name="package-dependencies" size={24} color={color} />
+          ),
         }}
       />
 

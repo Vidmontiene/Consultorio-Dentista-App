@@ -114,7 +114,7 @@ export default function Transacoes() {
       aposCartao -= valorCartao;
 
       // pega a porcentagem do dentista
-      if (doutor != '') {
+      if (doutor != ''  && tipo === 'entrada') {
         const porcentagemDentista = await banco.getPorcentagemDentista(doutor);
         valorDoutor = aposCartao * (porcentagemDentista/100);
       }

@@ -12,6 +12,18 @@ export const modal = StyleSheet.create({
     gap: 23
   },
 
+ fundo_modal_start:{
+    backgroundColor: 'white',
+    margin:'auto',
+    width: '100%',
+    justifyContent: 'center',
+    alignItems: 'flex-start',
+    padding: 15,
+    height: '100%',
+    alignSelf: 'center',
+    gap: 10
+  },
+
   input:{
     height: 50,
     width: '90%', 

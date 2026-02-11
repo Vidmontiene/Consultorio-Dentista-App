@@ -232,7 +232,7 @@ export default function usuarios() {
 
               <Text style={botao.txt_botao}>
                 <Text style={botao.txt_negrito}>Criado em: </Text>
-                {formatarData(item.criadoEm)}
+                {formatarData(item.criadoEm, true)}
               </Text>
 
             </View>

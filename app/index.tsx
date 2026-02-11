@@ -65,7 +65,7 @@ export default function Index() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.titulo}>Título</Text>
+      <Text style={styles.titulo}>Consultório</Text>
 
       <TextInput 
         style={styles.input} 

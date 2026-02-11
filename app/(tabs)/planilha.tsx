@@ -7,11 +7,12 @@ import { exportarRelatorioExcel } from "@/scripts/exportarExcel";
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { db } from "@/firebaseConfig";
-import { collection, deleteDoc, doc, onSnapshot, orderBy, query, runTransaction, serverTimestamp, setDoc, Timestamp, updateDoc, where } from "firebase/firestore";
+import { addDoc, collection, deleteDoc, doc, getDoc, onSnapshot, orderBy, query, runTransaction, serverTimestamp, setDoc, Timestamp, updateDoc, where } from "firebase/firestore";
 import { useFocusEffect } from "expo-router";
 import { modal } from "@/estilos/modal";
 import { CustomRadioButton } from "@/estilos/radioButton";
 import DateTimePicker from "@react-native-community/datetimepicker";
+import usuarios from "../usuarios";
 
 export default function RelatorioScreen() {
 
@@ -27,6 +28,7 @@ export default function RelatorioScreen() {
 
   const [caixaDB, setCaixaDB] = useState(0);
   const [role, setRole] = useState('');
+  const [idLogado, setIdLogado] = useState('');
 
   // Data selecionada
   const hoje = new Date();
@@ -35,7 +37,7 @@ export default function RelatorioScreen() {
 
   // useStates para editar
   const [pagamento, setPagamento] = useState('pix');
-  const [tipo, setTipo] = useState('')
+  const [tipo, setTipo] = useState('');
   const [nome, setNome] = useState('');
   const [valor, setValor] = useState(0);
   const [data, setData] = useState<Date | null>(null);
@@ -116,19 +118,12 @@ export default function RelatorioScreen() {
   // Salva as mudanças
   const salvar = async() => {
     try {
-
       let nomeT = nome.trim();
 
       // Não permite vazio
       if ( !nomeT || valor === 0 ) {
         alert("Preencha todos os campos");
         return;
-      }
-
-      // Tira caixa antigo 
-      if (pagamentoCopy === "dinheiro") {
-        const delta = tipoCopy === "entrada" ? -valorClinicaCopy : +valorClinicaCopy;
-        await banco.atualizarCaixa(delta);
       }
 
       let valorDoutor = 0;
@@ -143,7 +138,7 @@ export default function RelatorioScreen() {
       aposCartao -= valorCartao;
 
       // pega a porcentagem do dentista
-      if (doutor != '') {
+      if (doutor != ''  && tipo === 'entrada') {
         const porcentagemDentista = await banco.getPorcentagemDentista(doutor);
         valorDoutor = aposCartao * (porcentagemDentista/100);
       }
@@ -151,30 +146,96 @@ export default function RelatorioScreen() {
       // Separa o valor da clínica
       const  valorClinica = aposCartao - valorDoutor;
 
-      // Põe no DB
-      const ref = doc(db, "transacao", id);
-      await updateDoc(ref, {
-        nome: nomeT,
-        formaPagamento: pagamento,
-        idDoutor: doutor,
-        tipo: tipo,
-        data: data ? Timestamp.fromDate(data) : serverTimestamp(),
-        valorBruto: valor,
-        valorDoutor: valorDoutor,
-        valorCartao: valorCartao,
-        valorClinica: valorClinica
-      });
+      // Se for adm já salva direto
+      if (role === 'admin'){
 
-      // Coloca no caixa
-      if (pagamento === "dinheiro") {
-        const delta = tipo === "entrada" ? +valorClinica : -valorClinica;
-        await banco.atualizarCaixa(delta);
-        await carregarCaixa();
-      }
+        // Tira caixa antigo 
+        if (pagamentoCopy === "dinheiro") {
+          const delta = tipoCopy === "entrada" ? -valorClinicaCopy : +valorClinicaCopy;
+          await banco.atualizarCaixa(delta);
+        }
 
-      Alert.alert("Registro atualizado!", `${nomeT} foi atualizado.`);
+        // Põe no DB
+        const ref = doc(db, "transacao", id);
+        await updateDoc(ref, {
+          nome: nomeT,
+          formaPagamento: pagamento,
+          idDoutor: doutor,
+          tipo: tipo,
+          data: data ? Timestamp.fromDate(data) : serverTimestamp(),
+          valorBruto: valor,
+          valorDoutor: valorDoutor,
+          valorCartao: valorCartao,
+          valorClinica: valorClinica
+        });
 
-    } 
+        // Coloca no caixa
+        if (pagamento === "dinheiro") {
+          const delta = tipo === "entrada" ? +valorClinica : -valorClinica;
+          await banco.atualizarCaixa(delta);
+          await carregarCaixa();
+        }
+
+        Alert.alert("Registro atualizado!", `${nomeT} foi atualizado.`);
+      }   
+      
+      // Se for funcionário salva a pendência
+      else {
+        const ref = doc(db, "transacao", id);
+        const snap = await getDoc(ref);
+        
+        if (!snap.exists()) {
+          alert("Registro não encontrado");
+          return;
+        }
+
+        const dadosAntigos = snap.data();
+
+        const dadosNovos = {
+          nome: nomeT,
+          formaPagamento: pagamento,
+          idDoutor: doutor,
+          tipo: tipo,
+          data: data ? Timestamp.fromDate(data) : dadosAntigos.data,
+          valorBruto: valor,
+          valorDoutor: valorDoutor,
+          valorCartao: valorCartao,
+          valorClinica: valorClinica
+        };
+
+        const usuarioRef = doc(db, "usuario", idLogado);
+        const usuarioSnap = await getDoc(usuarioRef);
+        const nomeUsuario = usuarioSnap.data()?.nome || "Usuário";
+
+        // Coloca na alteração pendente
+        const solicitacaoRef = await addDoc(collection(db, "alteracoesPendentes"), {
+          transacaoId: id,
+          solicitadoPor: idLogado,
+          solicitadoPorNome: nomeUsuario,
+          tipo: "edicao",
+          antes: { ...dadosAntigos },
+          depois: { ...dadosNovos },
+          status: "pendente",
+          criadoEm: serverTimestamp(),
+          analisadoPor: null,
+          analisadoEm: null
+        }); 
+
+        // Cria notificação
+        await addDoc(collection(db, "notificacoes"), {
+          para: "admin",
+          mensagem: `${nomeUsuario} solicitou alteração em ${dadosAntigos.nome}`,
+          referencia: solicitacaoRef.id,
+          lida: false,
+          criadoEm: serverTimestamp()
+        });
+
+        Alert.alert(
+          "Enviado para aprovação",
+          "O administrador precisa aprovar a alteração."
+        );
+      } 
+    }
     catch (error) {
       console.log(error);
       alert("Erro ao atualizar");
@@ -206,18 +267,65 @@ export default function RelatorioScreen() {
   // Deleta registro
   const deletar = async (item: LinhaRelatorio) => {
       try {
-        // Deleta o registro
-        await deleteDoc(doc(db, "transacao", item.id));
 
-        // Tira caixa antigo 
-        if (item.formaPagamento === "dinheiro") {
-          const delta = tipoCopy === "entrada" ? -item.valorClinica : +item.valorClinica;
-          await banco.atualizarCaixa(delta);
-          await carregarCaixa();
+        // Se for adm já deleta
+        if (role == 'admin'){
+          // Deleta o registro
+          await deleteDoc(doc(db, "transacao", item.id));
+
+          // Tira caixa antigo 
+          if (item.formaPagamento === "dinheiro") {
+            const delta = tipoCopy === "entrada" ? -item.valorClinica : +item.valorClinica;
+            await banco.atualizarCaixa(delta);
+            await carregarCaixa();
+          }
+
+          Alert.alert("Registro deletado!", `${nome} foi deletado.`);
         }
+        
+        // Se for funcionário salva a pendência
+        else {   
+          const usuarioRef = doc(db, "usuario", idLogado);
+          const usuarioSnap = await getDoc(usuarioRef);
+          const nomeUsuario = usuarioSnap.data()?.nome || "Usuário";
 
-        Alert.alert("Registro deletado!", `${nome} foi deletado.`);
+          const ref = doc(db, "transacao", id);
+          const snap = await getDoc(ref);
+          
+          if (!snap.exists()) {
+            alert("Registro não encontrado");
+            return;
+          }
+          const dadosAntigos = snap.data();
 
+          // Coloca na alteração pendente
+          const solicitacaoRef = await addDoc(collection(db, "alteracoesPendentes"), {
+            transacaoId: id,
+            solicitadoPor: idLogado,
+            solicitadoPorNome: nomeUsuario,
+            tipo: "deletar",
+            antes: { ...dadosAntigos },
+            depois: { ...dadosAntigos },
+            status: "pendente",
+            criadoEm: serverTimestamp(),
+            analisadoPor: null,
+            analisadoEm: null
+          }); 
+
+          // Cria notificação
+          await addDoc(collection(db, "notificacoes"), {
+            para: "admin",
+            mensagem: `${nomeUsuario} solicitou alteração em ${item.nome}`,
+            referencia: solicitacaoRef.id,
+            lida: false,
+            criadoEm: serverTimestamp()
+          });
+
+          Alert.alert(
+            "Enviado para aprovação",
+            "O administrador precisa aprovar a exclusão."
+          );
+        } 
       } 
       catch (error) {
         console.log(error);
@@ -334,7 +442,7 @@ export default function RelatorioScreen() {
       setLinhas(linhas);
       setTotais(totais);
 
-      // busca nomes
+      // Busca nomes
       const [usuarios, dentistas] = await Promise.all([
         buscarMapaUsuarios(linhas.map((l: { criadoPor: any }) => l.criadoPor)),
         buscarMapaUsuarios(linhas.map((l: { idDoutor: any }) => l.idDoutor))
@@ -350,7 +458,7 @@ export default function RelatorioScreen() {
 
       setDentistasLista(idsDentistas);
 
-      // totais por dentista
+      // Totais por dentista
       const totaisPorDentista: Record<string, number> = {};
 
       linhas.forEach((l: { idDoutor: string | number; valorDoutor: number }) => {
@@ -361,9 +469,14 @@ export default function RelatorioScreen() {
 
       setTotaisPorDentista(totaisPorDentista);
 
-      const role = await banco.getRole();
+      const role = await banco.getRole();   
       setRole(role);
 
+      if (role != "admin"){
+        const idL = await banco.getIdLogado();
+        setIdLogado(idL);
+        console.log(idLogado);
+      }
     });
 
     return () => unsubscribe();
@@ -397,18 +510,6 @@ export default function RelatorioScreen() {
 
   }, []);
 
-  // Carrega o valor da caixa
-  useFocusEffect(
-    useCallback(() => {
-      carregarCaixa();
-    }, [])
-  );
-
-  const carregarCaixa = async() => {
-    const caixa = await banco.getCaixa();
-    setCaixaDB(caixa.toFixed(2));
-  }
-
   const buscarMapaUsuarios = async (ids: string[]) => {
 
     const unicos = [...new Set(ids.filter(Boolean))];
@@ -432,6 +533,18 @@ export default function RelatorioScreen() {
     return mapa;
   };
 
+  // Carrega o valor da caixa
+  useFocusEffect(
+    useCallback(() => {
+      carregarCaixa();
+    }, [])
+  );
+
+  const carregarCaixa = async() => {
+    const caixa = await banco.getCaixa();
+    setCaixaDB(caixa.toFixed(2));
+  }
+
   // Formata a forma de pagamento
   const formataForma = ( forma: string ) => {
     if (forma === 'pix'){
@@ -445,8 +558,8 @@ export default function RelatorioScreen() {
     }
   };
 
-  // Renderiza as linhas
-  const renderItem = ({ item }: { item: LinhaRelatorio }) => (
+  // Renderiza as linhas do administrador
+  const renderItemAdmin = ({ item }: { item: LinhaRelatorio }) => (
     <View style={styles.row}>
 
       <Text style={styles.cel}>{item.nome}</Text>
@@ -500,11 +613,56 @@ export default function RelatorioScreen() {
     </View>
   );
 
+  // Renderiza as linhas do funcionário
+  const renderItemFuncionario = ({ item }: { item: LinhaRelatorio }) => (
+    <View style={styles.row}>
+
+      <Text style={styles.cel}>{item.nome}</Text>
+
+      <Text style={styles.cel}>{item.data.toDate().toLocaleDateString("pt-BR")}</Text>
+
+      <Text style={styles.cel}>
+        {nomesUsuarios[item.criadoPor]?.nome ?? "—"}
+      </Text>
+
+      <Text style={styles.cel}>{formataForma(item.formaPagamento)}</Text>
+
+      <TouchableOpacity style={styles.cel} onPress={async () => await preencherStates(item)}>
+        <MaterialIcons name="edit" size={24} color="black" />
+      </TouchableOpacity>
+
+      <TouchableOpacity style={styles.cel} onPress={() => confirmarDelete(item)}>
+        <FontAwesome name="trash-o" size={24} color="black" />
+      </TouchableOpacity>
+    </View>
+  );
+
+  // Renderiza as linhas do administrador
+  const renderItemDentista = ({ item }: { item: LinhaRelatorio }) => (
+    <View style={styles.row}>
+
+      <Text style={styles.cel}>{item.nome}</Text>
+
+      <Text style={styles.cel}>{item.data.toDate().toLocaleDateString("pt-BR")}</Text>
+
+      <Text style={[styles.cel, {color: '#6AA84F'}] }>
+        {idLogado === item.idDoutor ? `R$ ${item.valorDoutor.toFixed(2)}` : ""}
+      </Text>
+
+      <Text style={styles.cel}>
+        {nomesUsuarios[item.criadoPor]?.nome ?? "—"}
+      </Text>
+
+      <Text style={styles.cel}>{formataForma(item.formaPagamento)}</Text>
+
+    </View>
+  );
+
   return (
     <>
+      {/*Planilha de adminstrador*/}
       {role === 'admin' &&(
         <>
-
           <View style={styles.linhaPickers}>
 
             {/*Mes*/}
@@ -589,7 +747,7 @@ export default function RelatorioScreen() {
 
             <FlatList
               data={linhasFiltradas}
-              renderItem={renderItem}
+              renderItem={renderItemAdmin}
               keyExtractor={(item) => item.id}
             />
 
@@ -636,8 +794,160 @@ export default function RelatorioScreen() {
           </ScrollView>
         </>
       )}
-      { role != 'admin' && (
-        <Text>Sem acesso!</Text>
+
+      {/*Planilha de funcionário*/}
+      { role === 'funcionario' && (
+        <>
+          <View style={styles.linhaPickers}>
+
+            {/*Mes*/}
+            <View style={styles.pickerMes}>
+              <Picker
+                selectedValue={mesSelecionado}
+                onValueChange={(itemValue) => setMesSelecionado(itemValue)}
+              >
+                {meses.map((nome, i) => (
+                  <Picker.Item key={i} label={nome} value={i + 1} />
+                ))}
+              </Picker>
+            </View>
+
+            {/*Ano*/}
+            <View style={styles.pickerAno}>
+              <Picker
+                selectedValue={anoSelecionado}
+                onValueChange={(itemValue) => setAnoSelecionado(itemValue)}
+              >
+                {anosDisponiveis.map((ano) => (
+                  <Picker.Item key={ano} label={String(ano)} value={Number(ano)} />
+                ))}
+              </Picker>
+            </View>
+          </View>
+
+          {/*Planilha*/}
+          <ScrollView horizontal>
+          <View style={{ flex: 1 }}>
+
+            <View style={styles.row}>
+              <Text style={[styles.cel_header, {width: 200}]}>Caixa do mês atual:</Text>
+              <Text style={styles.cel}>R$ {totaisFiltrados.caixa.toFixed(2)}</Text>
+            </View>
+          
+            {/*Cabeçalho*/}
+            <View style={[styles.row, styles.header]}>
+              <Text style={styles.cel_header}>Nome</Text>
+              <Text style={styles.cel_header}>Data</Text>
+              <Text style={styles.cel_header}>Criado por</Text>
+              <Text style={styles.cel_header}>Forma</Text>
+              <Text style={styles.cel_header}></Text>
+              <Text style={styles.cel_header}></Text>
+            </View>
+
+            <FlatList
+              data={linhasFiltradas}
+              renderItem={renderItemFuncionario}
+              keyExtractor={(item) => item.id}
+            />
+
+            {/*Rodapé*/}
+            {linhasFiltradas.length > 0 && (
+              <View style={styles.footer}>
+                <Text style={styles.total}>TOTAL</Text> 
+
+                <Text style={styles.total}>
+                  {`Caixa total: \nR$ ${caixaDB}`}
+                </Text>      
+
+                <Text style={styles.total}></Text> 
+      
+              </View>
+            )}
+
+          </View>
+          </ScrollView>
+        </>
+      )}
+
+      {/*Planilha de dentista*/}
+      {role === 'dentista' && (
+        <>
+          <View style={styles.linhaPickers}>
+
+            {/*Mes*/}
+            <View style={styles.pickerMes}>
+              <Picker
+                selectedValue={mesSelecionado}
+                onValueChange={(itemValue) => setMesSelecionado(itemValue)}
+              >
+                {meses.map((nome, i) => (
+                  <Picker.Item key={i} label={nome} value={i + 1} />
+                ))}
+              </Picker>
+            </View>
+
+            {/*Ano*/}
+            <View style={styles.pickerAno}>
+              <Picker
+                selectedValue={anoSelecionado}
+                onValueChange={(itemValue) => setAnoSelecionado(itemValue)}
+              >
+                {anosDisponiveis.map((ano) => (
+                  <Picker.Item key={ano} label={String(ano)} value={Number(ano)} />
+                ))}
+              </Picker>
+            </View>
+
+          </View>
+
+          {/*Planilha*/}
+          <ScrollView horizontal>
+          <View style={{ flex: 1 }}>
+
+            <View style={styles.row}>
+              <Text style={[styles.cel_header, {width: 200}]}>Caixa do mês atual:</Text>
+              <Text style={styles.cel}>R$ {totaisFiltrados.caixa.toFixed(2)}</Text>
+            </View>
+          
+            {/*Cabeçalho*/}
+            <View style={[styles.row, styles.header]}>
+              <Text style={styles.cel_header}>Nome</Text>
+              <Text style={styles.cel_header}>Data</Text>
+              <Text style={styles.cel_header}>
+                {`${nomesDentistas[idLogado].porcentagem}% ${nomesDentistas[idLogado].nome}`}
+              </Text>
+              <Text style={styles.cel_header}>Criado por</Text>
+              <Text style={styles.cel_header}>Forma</Text>
+            </View>
+
+            <FlatList
+              data={linhasFiltradas}
+              renderItem={renderItemDentista}
+              keyExtractor={(item) => item.id}
+            />
+
+            {/*Rodapé*/}
+            {linhasFiltradas.length > 0 && (
+              <View style={styles.footer}>
+                <Text style={styles.total}>TOTAL</Text> 
+
+                <Text style={styles.total}>
+                  {`Caixa total: \nR$ ${caixaDB}`}
+                </Text>      
+
+                <Text style={styles.total}>
+                  {`${nomesDentistas[idLogado].nome}: \nR$ ${(totaisPorDentistaFiltrado[idLogado] ?? 0).toFixed(2)}`}
+                </Text> 
+
+                <Text style={styles.total}></Text> 
+
+                <Text style={styles.total}></Text> 
+              </View>
+            )}
+
+          </View>
+          </ScrollView>
+        </>
       )}
 
       {/*Modal de editar*/}
@@ -735,7 +1045,6 @@ export default function RelatorioScreen() {
       </View>
       </Modal>
     </>
-  
   );
 }
 
