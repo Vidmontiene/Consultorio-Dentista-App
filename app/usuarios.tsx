@@ -251,7 +251,8 @@ export default function usuarios() {
           style={modal.input} 
           placeholder='Nome' 
           value={nome} 
-          onChangeText={setNome} />
+          onChangeText={setNome} 
+          placeholderTextColor={'gray'}/>
 
         <CustomRadioButton
           label="Funcionário"

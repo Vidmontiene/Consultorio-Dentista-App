@@ -72,14 +72,16 @@ export default function Index() {
         placeholder="Email" value={email} 
         onChangeText={setEmail} 
         keyboardType='email-address' 
-        autoCapitalize="none"/>
+        autoCapitalize="none"
+        placeholderTextColor={'gray'} />
       <TextInput 
         style={styles.input} 
         placeholder="Senha" 
         value={senha} 
         onChangeText={setSenha}  
         secureTextEntry 
-        autoCapitalize="none"/>
+        autoCapitalize="none"
+        placeholderTextColor={'gray'}/>
 
       <TouchableOpacity style={styles.botao} onPress={async() => {logar(), Keyboard.dismiss()}}>
         <Text style={styles.texto}>Login</Text>

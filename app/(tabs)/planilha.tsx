@@ -221,15 +221,6 @@ export default function RelatorioScreen() {
           analisadoEm: null
         }); 
 
-        // Cria notificação
-        await addDoc(collection(db, "notificacoes"), {
-          para: "admin",
-          mensagem: `${nomeUsuario} solicitou alteração em ${dadosAntigos.nome}`,
-          referencia: solicitacaoRef.id,
-          lida: false,
-          criadoEm: serverTimestamp()
-        });
-
         Alert.alert(
           "Enviado para aprovação",
           "O administrador precisa aprovar a alteração."
@@ -311,15 +302,6 @@ export default function RelatorioScreen() {
             analisadoPor: null,
             analisadoEm: null
           }); 
-
-          // Cria notificação
-          await addDoc(collection(db, "notificacoes"), {
-            para: "admin",
-            mensagem: `${nomeUsuario} solicitou alteração em ${item.nome}`,
-            referencia: solicitacaoRef.id,
-            lida: false,
-            criadoEm: serverTimestamp()
-          });
 
           Alert.alert(
             "Enviado para aprovação",
@@ -976,7 +958,8 @@ export default function RelatorioScreen() {
           style={modal.input} 
           placeholder='Nome da transação' 
           value={nome} 
-          onChangeText={setNome} />
+          onChangeText={setNome} 
+          placeholderTextColor={'gray'}/>
 
         {/*Data*/}
         <TouchableOpacity style={[modal.input, {justifyContent: 'center'}]} onPress={() => {setShowData(true), Keyboard.dismiss()}}>
@@ -999,9 +982,9 @@ export default function RelatorioScreen() {
             selectedValue={pagamento}
             onValueChange={(itemValue) => setPagamento(itemValue)}
           >
-            <Picker.Item label="Pix" value="pix" />
-            <Picker.Item label="Cartão" value="cartao" />
-            <Picker.Item label="Dinheiro" value="dinheiro" />
+            <Picker.Item label="Pix" value="pix" style={{color: "gray"}}/>
+            <Picker.Item label="Cartão" value="cartao" style={{color: "gray"}}/>
+            <Picker.Item label="Dinheiro" value="dinheiro" style={{color: "gray"}}/>
           </Picker>
         </View>
 
@@ -1022,12 +1005,13 @@ export default function RelatorioScreen() {
               selectedValue={doutor}
               onValueChange={(itemValue) => setDoutor(itemValue)}
             >
-              <Picker.Item label="Sem doutor responsável" value="" />
+              <Picker.Item label="Sem doutor responsável" value="" style={{color: "gray"}}/>
               {dentistas.map((item) => (
                 <Picker.Item
                   key={item.id}
                   label={item.nome}
                   value={item.id} 
+                  style={{color: "gray"}}
                 />
               ))}
             </Picker>
@@ -1038,7 +1022,7 @@ export default function RelatorioScreen() {
         }
 
         {/*Botão de salvar*/}
-        <TouchableOpacity style={modal.botao} onPress={salvar}>
+        <TouchableOpacity style={[modal.botao, {marginBottom: 50}]} onPress={salvar}>
           <Text style={modal.texto}>Salvar</Text>
         </TouchableOpacity>  
       

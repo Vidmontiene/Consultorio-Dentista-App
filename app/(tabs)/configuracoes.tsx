@@ -275,7 +275,7 @@ export default function Configuracoes() {
 
       {/*Adicionar usuário*/}
       <TouchableOpacity style={botao.botao} 
-        onPress={() => cargoUsuario === 'funcionario' ?
+        onPress={() => cargoUsuario != 'admin' ?
           Alert.alert(
             "Acesso negado", 
             "Somente administradores e dentistas podem cadastrar novo usuário!")
@@ -345,7 +345,8 @@ export default function Configuracoes() {
           style={modal.input} 
           placeholder='Nome' 
           value={nome} 
-          onChangeText={setNome} />
+          onChangeText={setNome} 
+          placeholderTextColor={'gray'}/>
 
         <TextInput 
           style={modal.input} 
@@ -353,7 +354,8 @@ export default function Configuracoes() {
           autoCapitalize="none"
           value={email} 
           keyboardType='email-address'
-          onChangeText={setEmail} />
+          onChangeText={setEmail} 
+          placeholderTextColor={'gray'}/>
 
         <TextInput
           style={modal.input} 
@@ -361,7 +363,8 @@ export default function Configuracoes() {
           placeholder="Senha" 
           value={senha} 
           onChangeText={setSenha}  
-          secureTextEntry/>
+          secureTextEntry
+          placeholderTextColor={'gray'}/>
 
         <CustomRadioButton
           label="Funcionário"
@@ -417,6 +420,7 @@ export default function Configuracoes() {
         <TextInput 
           style={modal.input_percent} 
           placeholder='Taxa do cartão' 
+          placeholderTextColor={'gray'}
           value={cartao} 
           onChangeText={mudarNum} 
           keyboardType='decimal-pad'/>
@@ -442,7 +446,8 @@ export default function Configuracoes() {
           placeholder="Email" value={email} 
           onChangeText={setEmail} 
           keyboardType='email-address' 
-          autoCapitalize="none"/>
+          autoCapitalize="none"
+          placeholderTextColor={'gray'}/>
 
         <TextInput 
           style={modal.input} 
@@ -450,7 +455,8 @@ export default function Configuracoes() {
           value={senha} 
           onChangeText={setSenha}  
           secureTextEntry 
-          autoCapitalize="none"/>
+          autoCapitalize="none"
+          placeholderTextColor={'gray'}/>
   
         <TextInput 
           style={modal.input} 
@@ -458,7 +464,8 @@ export default function Configuracoes() {
           value={novaSenha} 
           onChangeText={setNovaSenha}  
           secureTextEntry 
-          autoCapitalize="none"/>
+          autoCapitalize="none"
+          placeholderTextColor={'gray'}/>
 
         <TouchableOpacity style={modal.botao} onPress={trocarSenha}>
           <Text style={modal.texto}>Alterar</Text>

@@ -186,6 +186,7 @@ export default function Transacoes() {
         <TextInput 
           style={modal.input} 
           placeholder='Nome da transação' 
+          placeholderTextColor={'gray'}
           value={nome} 
           onChangeText={setNome} />
 
@@ -210,9 +211,9 @@ export default function Transacoes() {
             selectedValue={pagamento}
             onValueChange={(itemValue) => setPagamento(itemValue)}
           >
-            <Picker.Item label="Pix" value="pix" />
-            <Picker.Item label="Cartão" value="cartao" />
-            <Picker.Item label="Dinheiro" value="dinheiro" />
+            <Picker.Item label="Pix" value="pix" style={{color: "gray"}}/>
+            <Picker.Item label="Cartão" value="cartao" style={{color: "gray"}}/>
+            <Picker.Item label="Dinheiro" value="dinheiro" style={{color: "gray"}}/>
           </Picker>
         </View>
 
@@ -232,19 +233,20 @@ export default function Transacoes() {
             selectedValue={doutor}
             onValueChange={(itemValue) => setDoutor(itemValue)}
           >
-            <Picker.Item label="Sem doutor responsável" value="" />
+            <Picker.Item label="Sem doutor responsável" value="" style={{color: "gray"}}/>
             {dentistas.map((item) => (
               <Picker.Item
                 key={item.id}
                 label={item.nome}
                 value={item.id} 
+                style={{color: "gray"}}
               />
             ))}
           </Picker>
         </View>
 
         {/*Botão de salvar*/}
-        <TouchableOpacity style={modal.botao} onPress={() => salvarTransacao('entrada')}>
+        <TouchableOpacity style={[modal.botao, {marginBottom: 50}]} onPress={() => salvarTransacao('entrada')}>
           <Text style={modal.texto}>Salvar</Text>
         </TouchableOpacity>  
       
@@ -260,7 +262,8 @@ export default function Transacoes() {
           style={modal.input} 
           placeholder='Nome da transação' 
           value={nome} 
-          onChangeText={setNome} />
+          onChangeText={setNome} 
+          placeholderTextColor={'gray'}/>
 
         {/*Data*/}
         <TouchableOpacity style={[modal.input, {justifyContent: 'center'}]} onPress={() => {setShowData(true), Keyboard.dismiss()}}>
@@ -283,9 +286,9 @@ export default function Transacoes() {
             selectedValue={pagamento}
             onValueChange={(itemValue) => setPagamento(itemValue)}
           >
-            <Picker.Item label="Pix" value="pix" />
-            <Picker.Item label="Cartão" value="cartao" />
-            <Picker.Item label="Dinheiro" value="dinheiro" />
+            <Picker.Item label="Pix" value="pix" style={{color: "gray"}}/>
+            <Picker.Item label="Cartão" value="cartao" style={{color: "gray"}}/>
+            <Picker.Item label="Dinheiro" value="dinheiro" style={{color: "gray"}}/>
           </Picker>
         </View>
 
@@ -301,7 +304,7 @@ export default function Transacoes() {
 
 
         {/*Botão de salvar*/}
-        <TouchableOpacity style={modal.botao} onPress={() => salvarTransacao('saida')}>
+        <TouchableOpacity style={[modal.botao, {marginBottom: 50}]} onPress={() => salvarTransacao('saida')}>
           <Text style={modal.texto}>Salvar</Text>
         </TouchableOpacity>  
       

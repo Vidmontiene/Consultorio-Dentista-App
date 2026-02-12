@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "consultorio",
+    "name": "Consultório",
     "slug": "consultorio",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -13,10 +13,6 @@
     },
     "android": {
       "softwareKeyboardLayoutMode": "resize",
-      "androidNavigationBar": {
-        "backgroundColor": "#ffffff",
-        "barStyle": "dark-content"
-      },
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -24,7 +20,8 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.camilavidmontiene.consultorio"
     },
     "web": {
       "output": "static",
