@@ -259,6 +259,7 @@ export default function Pendencias() {
   if (role === "admin"){
     return (
     <View style={styles.container}>
+      <Text style={{marginBottom: 10, fontSize: 15}}>Clique para ver mais detalhes da mudança</Text>
 
       <FlatList
         data={pendencias}

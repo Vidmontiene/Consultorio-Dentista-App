@@ -119,12 +119,13 @@ export async function exportarRelatorioExcel(
     bookType: "xlsx"
   });
 
-  // Novosistema de arquivos
+  // Novo sistema de arquivos
   const pasta = new Directory(Paths.cache, "relatorios");
 
   try {
     await pasta.create({ intermediates: true });
-  } catch (err: any) {
+  } 
+  catch (err: any) {
     if (!err.message.includes("already exists")) {
       throw err;
     }

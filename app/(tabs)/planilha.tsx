@@ -106,7 +106,7 @@ export default function RelatorioScreen() {
     setTipo(item.tipo);
     setDoutor(item.idDoutor);
 
-     //Para o caixa
+    //Para o caixa
     setValorClinicaCopy(item.valorClinica);
     setTipoCopy(item.tipo);
     setPagamentoCopy(item.formaPagamento);
@@ -266,7 +266,7 @@ export default function RelatorioScreen() {
 
           // Tira caixa antigo 
           if (item.formaPagamento === "dinheiro") {
-            const delta = tipoCopy === "entrada" ? -item.valorClinica : +item.valorClinica;
+            const delta = item.tipo === "entrada" ? -item.valorClinica : +item.valorClinica;
             await banco.atualizarCaixa(delta);
             await carregarCaixa();
           }

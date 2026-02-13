@@ -140,18 +140,9 @@ export default function Transacoes() {
       });
 
       // Coloca no caixa
-      if (pagamento === "dinheiro"){
-        const atual = await banco.getCaixa();
-        if (tipo === 'entrada'){
-          await setDoc(doc(db, "caixa", "geral"),{
-            valor: atual + valorClinica
-          })
-        }
-        else{
-          await setDoc(doc(db, "caixa", "geral"),{
-            valor: atual - valorClinica
-          })       
-        }
+      if (pagamento === "dinheiro") {
+        const delta = tipo === "entrada" ? +valorClinica : -valorClinica;
+        await banco.atualizarCaixa(delta);
       }
 
       Alert.alert(`Registro ${nomeT} criado com suceso!`, "As informações foram salvas.");
