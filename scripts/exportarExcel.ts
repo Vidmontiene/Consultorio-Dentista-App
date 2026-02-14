@@ -52,16 +52,16 @@ export async function exportarRelatorioExcel(
     Nome: l.nome,
     Data: l.data.toDate().toLocaleDateString("pt-BR"),
     CriadoPor: nomesUsuarios[l.criadoPor].nome ?? "",
-    Entrada: l.tipo === "entrada" ? l.entrada : "",
-    Saida: l.tipo === "saida" ? -l.saida : "",
+    Entrada: l.tipo === "entrada" ? `R$ ${l.entrada}` : "",
+    Saida: l.tipo === "saida" ? `R$ -${l.saida}` : "",
     Forma: l.formaPagamento,
     Dentista: l.idDoutor ? 
       `${nomesDentistas[l.idDoutor]?.nome ?? ""} (${nomesDentistas[l.idDoutor]?.porcentagem ?? 0}%)`
       : 
       "",
-    ValorDoutor: l.valorDoutor,
-    TaxaCartao: -l.valorCartao,
-    Clinica: l.tipo === "entrada" ? l.valorClinica : -l.valorClinica
+    ValorDoutor: `R$ ${l.valorDoutor}`,
+    TaxaCartao: `R$ -${l.valorCartao}`,
+    Clinica: l.tipo === "entrada" ? `R$ ${l.valorClinica}` : `R$ -${l.valorClinica}`
   }));
 
   // Saldo, entrada, saida
@@ -103,7 +103,7 @@ export async function exportarRelatorioExcel(
     Object.entries(totalPorDentista).forEach(([id, valor]) => {
       dados.push({
         Nome: nomesDentistas[id].nome ?? id,
-        Data: valor
+        Data: `R$ ${valor}`
       });
     });
   }
