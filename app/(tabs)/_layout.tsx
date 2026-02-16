@@ -2,6 +2,7 @@ import { Tabs } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import * as banco from "@/scripts/banco";
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import AntDesign from '@expo/vector-icons/AntDesign';
 import Octicons from '@expo/vector-icons/Octicons';
 
@@ -61,6 +62,14 @@ export default function TabLayout() {
           tabBarIcon: ({ color }) => (
             <Octicons name="package-dependencies" size={24} color={color} />
           ),
+        }}
+      />
+
+      <Tabs.Screen
+        name="agendamentos"
+        options={{
+          title: 'Agenda',
+          tabBarIcon: ({ color }) => <MaterialCommunityIcons name="tooth-outline" size={24} color={color} />
         }}
       />
 

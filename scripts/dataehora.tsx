@@ -11,7 +11,26 @@ export const formatarData = (timestamp: any, hora: boolean) => {
     data.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });  
   }
     return data.toLocaleDateString("pt-BR") 
-}
+};
+
+// Formata timestamp em (DD/MM/AAAA às HH:MM)
+export const verHora = (timestamp: any ) => {
+  if (!timestamp) return "";
+
+  const data = timestamp.toDate();
+  return data.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });  
+
+};
+
+export const normalizarData = (valor: any) => {
+  if (!valor) return null;
+
+  // Timestamp do Firestore
+  if (valor?.toDate) return valor.toDate();
+
+  // já é Date
+  if (valor instanceof Date) return valor;
+};
 
 export const resolverTimestamp = (valor: any) => {
   if (!valor) return serverTimestamp();

@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react';
 import { doc, serverTimestamp, query, collection, where, orderBy, onSnapshot, getDocs, updateDoc, deleteDoc } from "firebase/firestore";
 import { db } from '@/firebaseConfig';
 import { autenticacao } from '@/firebaseConfig';
+import { styles } from '@/estilos/lista';
 import * as banco from "@/scripts/banco";
 
 export default function Pendencias() {
@@ -476,81 +477,3 @@ export default function Pendencias() {
   }
 }
 
-const styles = StyleSheet.create({
-  container: {
-    backgroundColor: '#fafafaff',
-    paddingHorizontal: 10,
-    height: "100%",
-    flex: 1,
-    paddingTop: 20,
-  },
-
-  informacoes:{
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginVertical: 5,
-  },
-
-  txt_botao:{
-    color: 'white',
-    fontWeight: '500',
-    fontSize: 14
-  },
-
-  txt_botao_negrito:{
-    color: 'white',
-    fontWeight: 'bold',
-    fontSize: 14
-  },
-
-  botao_info:{
-    backgroundColor: '#F0C10C', 
-    borderRadius: 10,
-    padding: 7,
-    flex: 2
-  },
-
-  botoes_controle:{
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    flex: 1
-  },
-
-  botao_controle:{
-    padding: 10,
-  },
-
-  txt:{
-    fontSize: 15,
-  },
-
-  txt_antes:{
-    fontSize: 15,
-    paddingHorizontal: 1,
-    marginVertical: 1
-  },
-
-  antes_e_depois_container:{
-    marginTop: 10,
-    flexDirection: 'row',
-  },
-
-  antes_e_depois:{
-    flex: 1
-  },
-
-  titulo_modal:{
-    fontWeight: 'bold',
-    textAlign: 'center',
-    fontSize: 17,
-    marginBottom: 7
-  },
-
-  botoes_modal:{
-    flexDirection: 'row',
-    width: '100%',
-    justifyContent: 'space-around',
-    marginTop: 50
-  }
-});

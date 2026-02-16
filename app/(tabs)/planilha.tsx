@@ -414,8 +414,28 @@ export default function RelatorioScreen() {
       (totaisPorDentistaFiltrado[l.idDoutor] ?? 0) + l.valorDoutor;
   });
 
-  // Carrega as linhas, pega role
+  // Carrega usuário logado primeiro
   useEffect(() => {
+    const carregar = async () => {
+
+      const role = await banco.getRole();   
+      setRole(role);
+
+      if (role !== "admin") {
+        const id = await banco.getIdLogado();
+        setIdLogado(id);
+      } 
+      else {
+        setIdLogado("admin");
+      }
+    };
+
+    carregar();
+  }, []);
+
+  useEffect(() => {
+
+    if (!idLogado) return;
 
     const unsubscribe = escutarRelatorio(async (dados: RelatorioSnapshot) => {
 
@@ -424,10 +444,17 @@ export default function RelatorioScreen() {
       setLinhas(linhas);
       setTotais(totais);
 
-      // Busca nomes
+      const idsCriador = [
+        ...new Set(linhas.map(l => l.criadoPor).concat(idLogado))
+      ];
+
+      const idsDoutor = [
+        ...new Set(linhas.map(l => l.idDoutor).concat(idLogado))
+      ];
+
       const [usuarios, dentistas] = await Promise.all([
-        buscarMapaUsuarios(linhas.map((l: { criadoPor: any }) => l.criadoPor)),
-        buscarMapaUsuarios(linhas.map((l: { idDoutor: any }) => l.idDoutor))
+        buscarMapaUsuarios(idsCriador),
+        buscarMapaUsuarios(idsDoutor)
       ]);
 
       setNomesUsuarios(usuarios);
@@ -435,7 +462,7 @@ export default function RelatorioScreen() {
 
       // lista de dentistas dinamica (colunas)
       const idsDentistas = [
-        ...new Set(linhas.map((l: { idDoutor: any }) => l.idDoutor).filter(Boolean))
+        ...new Set(linhas.map(l => l.idDoutor).filter(Boolean))
       ] as string[];
 
       setDentistasLista(idsDentistas);
@@ -443,7 +470,7 @@ export default function RelatorioScreen() {
       // Totais por dentista
       const totaisPorDentista: Record<string, number> = {};
 
-      linhas.forEach((l: { idDoutor: string | number; valorDoutor: number }) => {
+      linhas.forEach(l => {
         if (!l.idDoutor) return;
         totaisPorDentista[l.idDoutor] =
           (totaisPorDentista[l.idDoutor] ?? 0) + l.valorDoutor;
@@ -451,19 +478,11 @@ export default function RelatorioScreen() {
 
       setTotaisPorDentista(totaisPorDentista);
 
-      const role = await banco.getRole();   
-      setRole(role);
-
-      if (role != "admin"){
-        const idL = await banco.getIdLogado();
-        setIdLogado(idL);
-        console.log(idLogado);
-      }
     });
 
     return () => unsubscribe();
 
-  }, []);
+  }, [idLogado]); 
 
   // Carrega doutores
   useEffect(() => {
@@ -896,7 +915,9 @@ export default function RelatorioScreen() {
               <Text style={styles.cel_header}>Nome</Text>
               <Text style={styles.cel_header}>Data</Text>
               <Text style={styles.cel_header}>
-                {`${nomesDentistas[idLogado].porcentagem}% ${nomesDentistas[idLogado].nome}`}
+                {nomesDentistas[idLogado]
+                  ? `${nomesDentistas[idLogado].porcentagem}% ${nomesDentistas[idLogado].nome}`
+                  : "Carregando..."}
               </Text>
               <Text style={styles.cel_header}>Criado por</Text>
               <Text style={styles.cel_header}>Forma</Text>
@@ -918,7 +939,9 @@ export default function RelatorioScreen() {
                 </Text>      
 
                 <Text style={styles.total}>
-                  {`${nomesDentistas[idLogado].nome}: \nR$ ${(totaisPorDentistaFiltrado[idLogado] ?? 0).toFixed(2)}`}
+                  {nomesDentistas[idLogado]
+                    ? `${nomesDentistas[idLogado].nome}: \nR$ ${(totaisPorDentistaFiltrado[idLogado] ?? 0).toFixed(2)}`
+                    : ""}
                 </Text> 
 
                 <Text style={styles.total}></Text> 
