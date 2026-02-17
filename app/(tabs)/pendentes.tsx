@@ -1,5 +1,6 @@
 import { StyleSheet, View, Text, TouchableOpacity, Modal, Alert, FlatList } from 'react-native';
 import { modal } from '@/estilos/modal';
+import { info as i } from '@/estilos/info';
 import { formatarData, resolverTimestamp } from '@/scripts/dataehora';
 import Feather from '@expo/vector-icons/Feather';
 import { useEffect, useState } from 'react';
@@ -74,15 +75,20 @@ export default function Pendencias() {
       orderBy("criadoEm", "desc")
     );
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const lista: AlteracaoPendente[] = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...(doc.data() as Omit<AlteracaoPendente, "id">)
-      }));
+    const unsubscribe = onSnapshot(q, 
+      (snapshot) => {
+        const lista: AlteracaoPendente[] = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...(doc.data() as Omit<AlteracaoPendente, "id">)
+        }));
 
-      setPendencias(lista);
-      setCarregando(false);
-    });
+        setPendencias(lista);
+        setCarregando(false);
+      },
+      (error) => {
+        if (error.code === "permission-denied") return;
+        console.log("Erro Firestore:", error);       
+      });
 
     return unsubscribe;
   }, [role]);
@@ -256,7 +262,6 @@ export default function Pendencias() {
     setInfo(false);
   };
 
-
   if (role === "admin"){
     return (
     <View style={styles.container}>
@@ -266,33 +271,34 @@ export default function Pendencias() {
         data={pendencias}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
+          <TouchableOpacity style={i.container_info} onPress={() => preencherState(item)}>
+            <View style={i.borda}></View>
 
-        <View style={styles.informacoes}>
-          <TouchableOpacity style={styles.botao_info} onPress={() => preencherState(item)}>
-            <Text style={styles.txt_botao}>
-              <Text style={styles.txt_botao_negrito}>Solicitado por: </Text>
-              {item.solicitadoPorNome}
-            </Text>
-            <Text style={styles.txt_botao}>
-              <Text style={styles.txt_botao_negrito}>Data: </Text>
-              {formatarData(item.criadoEm, true)}
-            </Text>
-            <Text style={styles.txt_botao}>
-              <Text style={styles.txt_botao_negrito}>Tipo: </Text>
-              {item.tipo === 'edicao' ? 'Edição' : 'Deletar'}
-            </Text>
+            <View style={[i.container_principal, {flex: 3, marginLeft: 3}]}>
+              <Text style={i.txt_info}>
+                <Text style={i.txt_info_negrito}>Solicitado por: </Text>
+                {item.solicitadoPorNome}
+              </Text>
+              <Text style={i.txt_info}>
+                <Text style={i.txt_info_negrito}>Data: </Text>
+                {formatarData(item.criadoEm, true)}
+              </Text>
+              <Text style={i.txt_info}>
+                <Text style={i.txt_info_negrito}>Tipo: </Text>
+                {item.tipo === 'edicao' ? 'Edição' : 'Deletar'}
+              </Text>
+            </View>
+
+            <View style={[i.container_botoes, {flex:2}]}>
+              <TouchableOpacity onPress={() => {confirmarAceitar(item)}}>
+                <Feather name="check" size={35} color='#6AA84F' style={styles.botao_controle}/>
+              </TouchableOpacity>
+                
+              <TouchableOpacity onPress={() => {confirmarNegar(item)}}>
+                <Feather name="x" size={35} color='#E06666' style={styles.botao_controle}/>
+              </TouchableOpacity> 
+            </View>
           </TouchableOpacity>
-
-          <View style={styles.botoes_controle}>
-            <TouchableOpacity onPress={() => {confirmarAceitar(item)}}>
-              <Feather name="check" size={35} color='#6AA84F' style={styles.botao_controle}/>
-            </TouchableOpacity>
-              
-            <TouchableOpacity onPress={() => {confirmarNegar(item)}}>
-              <Feather name="x" size={35} color='#E06666' style={styles.botao_controle}/>
-            </TouchableOpacity>
-          </View>
-        </View>
         )}
       />
 

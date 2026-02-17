@@ -493,19 +493,24 @@ export default function RelatorioScreen() {
       orderBy('nome')
     );
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
+    const unsubscribe = onSnapshot(q, 
+      (snapshot) => {
 
-      const lista: any[] = [];
+        const lista: any[] = [];
 
-      snapshot.forEach((doc) => {
-        lista.push({
-          id: doc.id,
-          ...doc.data()
+        snapshot.forEach((doc) => {
+          lista.push({
+            id: doc.id,
+            ...doc.data()
+          });
         });
-      });
 
-      setDentistas(lista);
-    });
+        setDentistas(lista);
+      },
+      (error) => {
+        if (error.code === "permission-denied") return;
+        console.log("Erro Firestore:", error);       
+      });
 
     return unsubscribe;
 

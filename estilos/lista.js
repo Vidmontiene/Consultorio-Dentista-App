@@ -9,38 +9,6 @@ export const styles = StyleSheet.create({
     paddingTop: 20,
   },
 
-  informacoes:{
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginVertical: 5,
-  },
-
-  txt_botao:{
-    color: 'white',
-    fontWeight: '500',
-    fontSize: 15
-  },
-
-  txt_botao_negrito:{
-    color: 'white',
-    fontWeight: 'bold',
-    fontSize: 15
-  },
-
-  botao_info:{
-    backgroundColor: '#F0C10C', 
-    borderRadius: 10,
-    padding: 7,
-    flex: 2
-  },
-
-  botao_info_concluido:{
-    backgroundColor: '#f0c20ca2', 
-    borderRadius: 10,
-    padding: 7,
-    flex: 2
-  },
 
   botoes_controle:{
     flexDirection: 'row',
@@ -88,7 +56,7 @@ export const styles = StyleSheet.create({
   titulo_data:{
     fontWeight: 'bold',
     fontSize: 18,
-    marginVertical: 10
+    marginVertical: 13
 
   }
 });

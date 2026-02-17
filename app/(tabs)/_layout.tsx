@@ -1,10 +1,11 @@
-import { Tabs } from 'expo-router';
+import { router, Tabs, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import * as banco from "@/scripts/banco";
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import AntDesign from '@expo/vector-icons/AntDesign';
 import Octicons from '@expo/vector-icons/Octicons';
+import {  TouchableOpacity, View, Text } from 'react-native';
 
 export default function TabLayout() {
 
@@ -19,10 +20,42 @@ export default function TabLayout() {
     carregarRole();
   }, []);
 
+  // Header Customizado
+  const Header = () => {
+
+    return(
+    <View style={{
+      backgroundColor: 'white',
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'flex-end',
+      padding: 15,
+
+      // sombra iOS
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 3 },
+      shadowOpacity: 0.12,
+      shadowRadius: 4,
+
+      // sombra Android
+      elevation: 6,
+    }}>
+      <TouchableOpacity
+        onPress={() => router.push('/configuracoes')}
+        style={{ marginRight: 1}}
+      >
+        <AntDesign name="setting" size={26} color="gray" />
+      </TouchableOpacity>
+    </View>
+    )
+  };
+
   return (
     <Tabs
       screenOptions={{
-        headerShown: false,
+        headerShown: true,
+        header: () => <Header/>,      
+
         tabBarActiveTintColor: '#F0C10C',
         tabBarInactiveTintColor: "#9e9e9e",
         tabBarStyle: {
@@ -35,7 +68,8 @@ export default function TabLayout() {
         tabBarItemStyle: {
           paddingVertical: 6,
         },
-      }}>
+      }}
+    >
 
       <Tabs.Screen
         name="transacoes"
@@ -73,13 +107,6 @@ export default function TabLayout() {
         }}
       />
 
-      <Tabs.Screen
-        name="configuracoes"
-        options={{
-          title: 'Configurações',
-          tabBarIcon: ({ color }) => <AntDesign name="setting" size={24} color={color} />,
-        }}
-      />
     </Tabs>
   );
 }

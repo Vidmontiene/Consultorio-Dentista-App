@@ -261,10 +261,10 @@ export default function Configuracoes() {
     const cargo = await banco.getRole();
     setCargoUsuario(cargo);
     const cartao = await banco.getTaxaCartao();
-    setCartao(String(cartao));
+    setCartao(String(cartao)); 
+    })
 
     return unsubscribe;
-    })
   }, []);
 
   return (
@@ -328,7 +328,12 @@ export default function Configuracoes() {
       </TouchableOpacity>
 
       {/*Sair da conta*/}
-      <TouchableOpacity style={botao.botao}  onPress={() => autenticacao.signOut()}>
+      <TouchableOpacity style={botao.botao}    
+        onPress={async () => {
+          router.replace("/");
+          await new Promise(r => setTimeout(r, 50));
+          await autenticacao.signOut();
+        }}>
         <FontAwesome5 name="door-closed" size={31} style={[botao.img]} />
         <View style={botao.container_botao}>
           <Text style={botao.titulo_botao}>Sair da conta</Text>

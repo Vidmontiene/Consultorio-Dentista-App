@@ -36,7 +36,8 @@ type RelatorioSnapshot = {
 // Retorna as linhas da planilha
 export const escutarRelatorio = (callback: (dados: RelatorioSnapshot) => void) => {
 
-  const unsubscribe = onSnapshot(collection(db, "transacao"), (snapshot) => {
+  const unsubscribe = onSnapshot(collection(db, "transacao"), 
+  (snapshot) => {
 
     const linhas: LinhaRelatorio[] = [];
     const totais: Totais = { saldo: 0, doutor: 0, cartao: 0, clinica: 0, entrada: 0, saida: 0, caixa: 0 };
@@ -79,6 +80,10 @@ export const escutarRelatorio = (callback: (dados: RelatorioSnapshot) => void) =
     totais.saldo = totais.entrada = totais.saida
 
     callback({ linhas, totais });
+  },
+  (error) => {
+    if (error.code === "permission-denied") return;
+    console.log("Erro Firestore:", error);       
   });
 
   return unsubscribe;

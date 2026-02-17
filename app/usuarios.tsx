@@ -31,7 +31,8 @@ export default function usuarios() {
       orderBy("nome", "asc")
     );
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
+    const unsubscribe = onSnapshot(q, 
+      (snapshot) => {
 
       const usuarios: any[] = [];
 
@@ -43,7 +44,11 @@ export default function usuarios() {
       });
 
       setListaUsuarios(usuarios);
-    });
+      },
+      (error) => {
+        if (error.code === "permission-denied") return;
+        console.log("Erro Firestore:", error);       
+      });
 
     return unsubscribe;
   };

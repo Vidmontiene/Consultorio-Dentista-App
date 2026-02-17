@@ -15,6 +15,7 @@ export default function Transacoes() {
 
   const [pagamento, setPagamento] = useState('pix');
   const [obs, setObs]= useState('');
+  const [numero, setNumero] = useState('');
   const [nome, setNome] = useState('');
   const [valor, setValor] = useState(0); 
   const [hora, setHora] = useState<Date | null>(null); 
@@ -58,6 +59,12 @@ export default function Transacoes() {
     setData(dataAtual);
   };
 
+  // Lida com mudanças no numero 
+  const mudancaNumero = (num: string) => {
+    num = num.replace(/[^0-9]/g, "")
+    setNumero(num.trim());
+  };
+
   // Carrega doutores
   useEffect(() => {
 
@@ -67,19 +74,23 @@ export default function Transacoes() {
       orderBy('nome')
     );
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
+    const unsubscribe = onSnapshot(q, 
+      (snapshot) => {
+        const lista: any[] = [];
 
-      const lista: any[] = [];
-
-      snapshot.forEach((doc) => {
-        lista.push({
-          id: doc.id,
-          ...doc.data()
+        snapshot.forEach((doc) => {
+          lista.push({
+            id: doc.id,
+            ...doc.data()
+          });
         });
-      });
 
-      setDentistas(lista);
-    });
+        setDentistas(lista);
+      },
+      (error) => {
+        if (error.code === "permission-denied") return;
+        console.log("Erro Firestore:", error);       
+      });
 
     return unsubscribe;
 
@@ -93,6 +104,7 @@ export default function Transacoes() {
     setTexto('0,00');
     setData(new Date());
     setObs('');
+    setNumero('');
   };
 
   // Salva entrada
@@ -192,6 +204,7 @@ export default function Transacoes() {
       } 
 
       let obsT = obs.trim();
+      let numT = numero.trim();
 
       // Cadastra no db
       await addDoc(collection(db, "agendamentos"), {
@@ -199,6 +212,7 @@ export default function Transacoes() {
         idDoutor: doutor,
         data: Timestamp.fromDate(dataHoraSelecionada),
         obs: obsT,
+        numero: numT,
         concluido: false
       });
 
@@ -408,6 +422,15 @@ export default function Transacoes() {
           )}
         </View>
 
+        {/*Numero*/}
+        <TextInput 
+          style={modal.input} 
+          placeholder='Número' 
+          placeholderTextColor={'gray'}
+          value={numero} 
+          keyboardType="numeric"
+          maxLength={13}
+          onChangeText={mudancaNumero} />
 
         {/*Obs*/}
         <TextInput 

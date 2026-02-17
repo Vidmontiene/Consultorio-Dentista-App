@@ -12,6 +12,7 @@ const getTituloTela = (routeName?: string) => {
 
   const titulos: Record<string, string> = {
     usuarios: 'Usuários',
+    configuracoes: 'Configurações'
   };
 
   return titulos[routeName] ?? routeName;
@@ -73,6 +74,7 @@ export default function RootLayout() {
         <Stack.Screen name="index" options={{ headerShown: false }} />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="usuarios" options={{ headerShown: true }} />
+        <Stack.Screen name="configuracoes" options={{ headerShown: true }} />
       </Stack>
     </SafeAreaView>
   );

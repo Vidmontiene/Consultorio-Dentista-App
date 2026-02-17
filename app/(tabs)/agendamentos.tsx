@@ -3,7 +3,9 @@ import { db } from "../../firebaseConfig";
 import * as banco from "@/scripts/banco";
 import { normalizarData, verHora } from '@/scripts/dataehora';
 import React, { useEffect, useState } from 'react';
+import { info } from '@/estilos/info';
 import { addDoc, collection, deleteDoc, doc, onSnapshot, orderBy, query, serverTimestamp, setDoc, Timestamp, updateDoc, where } from 'firebase/firestore';
+import { enviarWhats } from '@/scripts/whats';
 import { CheckBox } from 'react-native-elements';
 import { styles } from '@/estilos/lista';
 import { formatarData } from '@/scripts/dataehora';
@@ -22,6 +24,7 @@ export default function Agendamentos() {
   const [lista, setLista] = useState<Agendamento[]>([]);
   const [nome, setNome] = useState('');
   const [doutor, setDoutor] = useState('');
+  const [numero, setNumero] = useState('');
   const [obs, setObs] = useState('');
   const [hora, setHora] = useState<Date | null>(null); 
   const [data, setData] = useState<Date | null>(new Date());
@@ -39,9 +42,10 @@ export default function Agendamentos() {
     idDoutor: string;
     nome: string;
     obs: string;
-    data: any
-    concluido: boolean
-    id: string
+    data: any;
+    concluido: boolean;
+    id: string;
+    numero: string;
   };
 
   type SecoesAgenda = {
@@ -66,7 +70,7 @@ export default function Agendamentos() {
     carregarRole();
   }, []);
 
-  // Pega alterações pendentes
+  // Pega agendamentos
   useEffect(() => {
     let q
     if (role !== "dentista"){
@@ -83,15 +87,19 @@ export default function Agendamentos() {
       );
     }
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const lista: Agendamento[] = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...(doc.data() as Omit<Agendamento, "id">)
-      }));
+    const unsubscribe = onSnapshot(q, 
+      (snapshot) => {
+        const lista: Agendamento[] = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...(doc.data() as Omit<Agendamento, "id">)
+        }));
 
-      setLista(lista);
-      setCarregando(false);
-    });
+        setLista(lista);
+      },
+      (error) => {
+        if (error.code === "permission-denied") return;
+        console.log("Erro Firestore:", error);       
+      });
 
     return unsubscribe;
   }, [role]);
@@ -105,19 +113,23 @@ export default function Agendamentos() {
       orderBy('nome')
     );
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
+    const unsubscribe = onSnapshot(q, 
+      (snapshot) => {
+        const lista: any[] = [];
 
-      const lista: any[] = [];
-
-      snapshot.forEach((doc) => {
-        lista.push({
-          id: doc.id,
-          ...doc.data()
+        snapshot.forEach((doc) => {
+          lista.push({
+            id: doc.id,
+            ...doc.data()
+          });
         });
-      });
 
-      setDentistas(lista);
-    });
+        setDentistas(lista);
+      },
+      (error) => {
+        if (error.code === "permission-denied") return;
+        console.log("Erro Firestore:", error);       
+      });
 
     return unsubscribe;
 
@@ -218,44 +230,45 @@ export default function Agendamentos() {
   const diasPassados = Object.keys(passados)
     .sort((a, b) =>  Number(a) - Number(b));
 
-  // Coloca letras maiusculas no titulo
-  const capitalizarTitulo = (texto: string) => {
-    const ignorar = ["de", "da", "do", "das", "dos", "e"];
-
-    return texto
-      .split(" ")
-      .map((palavra, index) => {
-        const limpa = palavra.toLowerCase();
-
-        // primeira palavra sempre maiúscula
-        if (index === 0) {
-          return limpa.charAt(0).toUpperCase() + limpa.slice(1);
-        }
-
-        // palavras que não capitalizam
-        if (ignorar.includes(limpa)) {
-          return limpa;
-        }
-
-        // capitaliza normalmente
-        return limpa.charAt(0).toUpperCase() + limpa.slice(1);
-      })
-      .join(" ");
+  const primeiraMaiuscula = (texto: string) => {
+    if (!texto) return "";
+    return texto.charAt(0).toUpperCase() + texto.slice(1).toLowerCase();
   };
 
   // Formata o dia para ficar no título
   const formatarTituloDia = (timestamp: string) => {
     const data = new Date(Number(timestamp));
+    const hoje = new Date();
 
-    const titulo = data.toLocaleDateString("pt-BR", {
-      weekday: "long",
-      day: "numeric",
-      month: "long",
-      year: "numeric"
-    });
+    // zera horas pra comparar só dia
+    hoje.setHours(0,0,0,0);
+    const dataCompare = new Date(data);
+    dataCompare.setHours(0,0,0,0);
 
-    return capitalizarTitulo(titulo);
+    const diffDias = Math.round(
+      (dataCompare.getTime() - hoje.getTime()) / 86400000
+    );
+
+    // HOJE / AMANHÃ
+    let prefixo = "";
+
+    if (diffDias === 0) prefixo = "Hoje";
+    else if (diffDias === 1) prefixo = "Amanhã";
+    else {
+      prefixo = data.toLocaleDateString("pt-BR", {
+        weekday: "long",
+      }).replace("-feira", "");
+  }
+
+  // DIA
+  const dia = data.getDate();
+
+  // MÊS
+  let mes = data.toLocaleDateString("pt-BR", { month: "long" });
+
+  return `${primeiraMaiuscula(prefixo)} • ${dia} ${"de " + primeiraMaiuscula(mes)}`;
   };
+
 
   // Preenche states
   const preencherStates = (item: Agendamento) => {
@@ -263,6 +276,7 @@ export default function Agendamentos() {
     setidItem(item.id);
     setNome(item.nome);
     setDoutor(item.idDoutor);
+    setNumero(item.numero);
 
     const dateObj = item.data.toDate();
 
@@ -287,6 +301,7 @@ export default function Agendamentos() {
     setDoutor('');
     setData(new Date());
     setHora(null);  
+    setNumero('');
   };
 
   // Lida com mudança na data 
@@ -294,6 +309,12 @@ export default function Agendamentos() {
     const dataAtual = dataSelecionada || data;
     setShowData(false);
     setData(dataAtual);
+  };
+
+  // Lida com mudanças no numero 
+  const mudancaNumero = (num: string) => {
+    num = num.replace(/[^0-9]/g, "")
+    setNumero(num.trim());
   };
 
   // Retorna o nome do doutor
@@ -332,6 +353,7 @@ export default function Agendamentos() {
       } 
 
       let obsT = obs.trim();
+      let numT = numero.trim();
 
       // Põe no DB
       const ref = doc(db, "agendamentos", idItem);
@@ -340,6 +362,7 @@ export default function Agendamentos() {
         idDoutor: doutor,
         data: Timestamp.fromDate(dataHoraSelecionada),
         obs: obsT,
+        numero: numT
       });
 
 
@@ -357,60 +380,67 @@ export default function Agendamentos() {
   // Renderiza a agenda atual
   const ItemAgenda = ({ item }: Props) => {
     return (
-      <View style={styles.informacoes}>
+      <View style={info.container_info}>
 
-        {/*Checkbox para dentista*/}
-        {role === "dentista" &&(
-          <CheckBox
-            checked={item.concluido || false}
-            onPress={() => alternarCheck(item.id, item)}
-            checkedColor='#F0C10C'
-            uncheckedColor="gray"
-            size={33}
-            containerStyle={{ padding: 0, margin: 0, backgroundColor: 'transparent', alignSelf: 'center' }}
-          />
-        )}
+        <View style={info.borda}></View>
+        <View style={info.container_hora}>
+          <Text style={info.txt_hora}>{verHora(item.data)}</Text>  
 
-        {/*Informações*/}
-        <TouchableOpacity style={[styles.botao_info, item.concluido && styles.botao_info_concluido]}>
-          <Text style={styles.txt_botao}>
-            <Text style={styles.txt_botao_negrito}>Paciente: </Text>
-            {item.nome}
-          </Text>
-
-          <Text style={styles.txt_botao}>
-            <Text style={styles.txt_botao_negrito}>Horário: </Text>
-            {verHora(item.data)}
-          </Text>
-
-          {role != 'dentista' &&(
-            <Text style={styles.txt_botao}>
-              <Text style={styles.txt_botao_negrito}>Dentista: </Text>
-              {pegarNomeDoutor(item.idDoutor)}
-            </Text>        
+          {role === "dentista" && (
+            <CheckBox
+              checked={item.concluido || false}
+              onPress={() => alternarCheck(item.id, item)}
+              checkedColor='#F0C10C'
+              uncheckedColor="gray"
+              size={28}
+              containerStyle={{
+                padding: 0,
+                margin: 0,
+                backgroundColor: 'transparent'
+              }}
+            />
           )}
-
-          {item.obs !== '' && (
-            <Text style={styles.txt_botao}>
-              <Text style={styles.txt_botao_negrito}>Observação: </Text>
-              {item.obs}
-            </Text>
-          )}
-        </TouchableOpacity>
-
-        {/*Botões de editar e excluir*/}
-        <View style={styles.botoes_controle}>
-
-          <TouchableOpacity onPress={() => preencherStates(item)}>
-            <MaterialIcons name="edit" size={33} color="gray"  style={[styles.botao_controle, {alignSelf: 'center'}]} />
-          </TouchableOpacity>
-
-          <TouchableOpacity onPress={() => confirmarDelete(item)}>
-            <FontAwesome name="trash-o" size={33} color='gray' style={[styles.botao_controle, {alignSelf: 'center'}]} />
-          </TouchableOpacity>
-
         </View>
 
+        <View style={info.container_principal}>
+
+          <Text style={info.txt_nome}>{item.nome}</Text>
+
+          <Text style={info.txt_info}>
+            {pegarNomeDoutor(item.idDoutor)}
+          </Text>        
+
+
+          {item.numero !== '' && (
+            <Text style={info.txt_info}>
+              {item.numero}
+            </Text>
+          )}  
+
+
+          {item.obs !== '' && (
+            <Text style={info.txt_info}>
+              {item.obs}
+            </Text>
+          )}  
+        </View>
+
+        <View style={info.container_botoes}>
+
+          <View style={info.linha_botoes}>
+            <TouchableOpacity onPress={() => enviarWhats(item)}>
+              <FontAwesome name="whatsapp" size={30} color='#58C57F' />
+            </TouchableOpacity>          
+
+            <TouchableOpacity onPress={() => preencherStates(item)}>
+              <MaterialIcons name="edit" size={30} color="gray" />
+            </TouchableOpacity>
+
+            <TouchableOpacity onPress={() => confirmarDelete(item)}>
+              <FontAwesome name="trash-o" size={30} color='gray' />
+            </TouchableOpacity>
+          </View>
+        </View>
       </View>
     )
   };
@@ -420,55 +450,56 @@ export default function Agendamentos() {
   // Renderiza a agenda do passado
   const ItemAgendaPassado = ({ item }: Props) => {
     return (
-      <View style={styles.informacoes}>
+      <View style={info.container_info}>
 
-        {/*Checkbox para dentista*/}
-        {role === "dentista" &&(
-          <CheckBox
-            checked={item.concluido || false}
-            onPress={() => alternarCheck(item.id, item)}
-            checkedColor='#F0C10C'
-            uncheckedColor="gray"
-            size={33}
-            containerStyle={{ padding: 0, margin: 0, backgroundColor: 'transparent', alignSelf: 'center' }}
-          />
-        )}
+        <View style={info.borda}></View>
+        <View style={info.container_hora}>
+          <Text style={info.txt_hora}>{verHora(item.data)}</Text>  
 
-        {/*Informações*/}
-        <TouchableOpacity style={[styles.botao_info, item.concluido && styles.botao_info_concluido]}>
-          <Text style={styles.txt_botao}>
-            <Text style={styles.txt_botao_negrito}>Paciente: </Text>
-            {item.nome}
-          </Text>
-
-          <Text style={styles.txt_botao}>
-            <Text style={styles.txt_botao_negrito}>Horário: </Text>
-            {verHora(item.data)}
-          </Text>
-
-          {role != 'dentista' &&(
-            <Text style={styles.txt_botao}>
-              <Text style={styles.txt_botao_negrito}>Dentista: </Text>
-              {pegarNomeDoutor(item.idDoutor)}
-            </Text>        
+          {role === "dentista" && (
+            <CheckBox
+              checked={item.concluido || false}
+              onPress={() => alternarCheck(item.id, item)}
+              checkedColor='#F0C10C'
+              uncheckedColor="gray"
+              size={28}
+              containerStyle={{
+                padding: 0,
+                margin: 0,
+                backgroundColor: 'transparent'
+              }}
+            />
           )}
-
-          {item.obs !== '' && (
-            <Text style={styles.txt_botao}>
-              <Text style={styles.txt_botao_negrito}>Observação: </Text>
-              {item.obs}
-            </Text>
-          )}
-        </TouchableOpacity>
-
-        {/*Botões de editar e excluir*/}
-        <View style={styles.botoes_controle}>
-          <TouchableOpacity onPress={() => confirmarDelete(item)}>
-            <FontAwesome name="trash-o" size={33} color='gray' style={[styles.botao_controle, {alignSelf: 'center'}]} />
-          </TouchableOpacity>
-
         </View>
 
+        <View style={info.container_principal}>
+
+          <Text style={info.txt_nome}>{item.nome}</Text>
+
+          <Text style={info.txt_info}>
+            {pegarNomeDoutor(item.idDoutor)}
+          </Text>        
+
+          {item.numero !== '' && (
+            <Text style={info.txt_info}>
+              {item.numero}
+            </Text>
+          )}  
+
+          {item.obs !== '' && (
+            <Text style={info.txt_info}>
+              {item.obs}
+            </Text>
+          )}  
+        </View>
+
+        <View style={[info.container_botoes, {justifyContent: 'flex-end', paddingRight: 5}]}>
+
+          <TouchableOpacity onPress={() => confirmarDelete(item)}>
+            <FontAwesome name="trash-o" size={33} color='gray' style={info.img_botao}  />
+          </TouchableOpacity>
+      
+        </View>
       </View>
     )
   };
@@ -555,6 +586,16 @@ export default function Agendamentos() {
           )}
         </View>
 
+        {/*Numero*/}
+        <TextInput 
+          style={modal.input} 
+          placeholder='Número' 
+          placeholderTextColor={'gray'}
+          value={numero} 
+          keyboardType="numeric"
+          maxLength={13}
+          onChangeText={mudancaNumero} />
+
         {/*Obs*/}
         <TextInput 
           style={modal.input} 
@@ -591,7 +632,5 @@ export default function Agendamentos() {
 
     </ScrollView>
   );
-
 }
-
 
