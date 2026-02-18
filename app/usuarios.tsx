@@ -1,5 +1,5 @@
-import { collection, deleteDoc, doc, getDoc, getDocs, onSnapshot, orderBy, query, updateDoc } from "firebase/firestore";
-import { autenticacao, db } from "../firebaseConfig";
+import { collection, deleteDoc, doc, onSnapshot, orderBy, query, updateDoc } from "firebase/firestore";
+import { db } from "../firebaseConfig";
 import { useEffect, useState } from "react";
 import { botao } from '@/estilos/botoes';
 import { Alert, FlatList, Keyboard, Modal } from "react-native";
@@ -10,7 +10,6 @@ import { modal } from '@/estilos/modal';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { formatarData } from "@/scripts/dataehora";
 import { CustomRadioButton } from "@/estilos/radioButton";
-import { onAuthStateChanged } from "@firebase/auth";
 
 export default function usuarios() {
 

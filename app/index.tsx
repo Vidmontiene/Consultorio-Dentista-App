@@ -61,7 +61,7 @@ export default function Index() {
       }
       Alert.alert(titulo, msg);
     }
-  }
+  };
 
   return (
     <View style={styles.container}>
@@ -74,6 +74,7 @@ export default function Index() {
         keyboardType='email-address' 
         autoCapitalize="none"
         placeholderTextColor={'gray'} />
+        
       <TextInput 
         style={styles.input} 
         placeholder="Senha" 

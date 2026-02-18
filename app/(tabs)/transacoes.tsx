@@ -4,15 +4,19 @@ import * as banco from "@/scripts/banco";
 import { Picker } from '@react-native-picker/picker';
 import { modal } from '@/estilos/modal';
 import { useEffect, useState } from 'react';
-import { addDoc, collection, doc, onSnapshot, orderBy, query, serverTimestamp, setDoc, Timestamp, where } from 'firebase/firestore';
+import { addDoc, collection, onSnapshot, orderBy, query, Timestamp, where } from 'firebase/firestore';
 import DateTimePicker from "@react-native-community/datetimepicker";
 
 export default function Transacoes() {
 
+  // Modais
   const [entrada, setEntrada] = useState(false);
   const [saida, setSaida] = useState(false);
   const [agenda, setAgenda] = useState(false);
+  const [showData, setShowData] = useState(false); 
+  const [showHora, setShowHora] = useState(false);
 
+  // States dos inputs
   const [pagamento, setPagamento] = useState('pix');
   const [obs, setObs]= useState('');
   const [numero, setNumero] = useState('');
@@ -20,14 +24,11 @@ export default function Transacoes() {
   const [valor, setValor] = useState(0); 
   const [hora, setHora] = useState<Date | null>(null); 
   const [data, setData] = useState<Date | null>(new Date());
-
   const [doutor, setDoutor] = useState('');
-
-  const [dentistas, setDentistas] = useState<any[]>([]);
   const [texto, setTexto] = useState('0,00');
 
-  const [showData, setShowData] = useState(false); 
-  const [showHora, setShowHora] = useState(false);
+  // Lista de dentistas
+  const [dentistas, setDentistas] = useState<any[]>([]);
 
   // Lida com mudanças na moeda
   const mudarValor = ( moeda: string ) => {
@@ -96,6 +97,7 @@ export default function Transacoes() {
 
   }, []);
 
+  // Zera os useStates
   const zerarUseStates = () => {
     setPagamento('pix');
     setNome('');

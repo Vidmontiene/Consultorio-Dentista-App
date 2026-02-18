@@ -1,14 +1,13 @@
-import { StyleSheet, TouchableOpacity, View, Text, Modal, TextInput, Keyboard, Platform, Alert, FlatList, ScrollView } from 'react-native';
+import { TouchableOpacity, View, Text, Modal, TextInput, Keyboard, Platform, Alert, ScrollView } from 'react-native';
 import { db } from "../../firebaseConfig";
 import * as banco from "@/scripts/banco";
 import { normalizarData, verHora } from '@/scripts/dataehora';
 import React, { useEffect, useState } from 'react';
 import { info } from '@/estilos/info';
-import { addDoc, collection, deleteDoc, doc, onSnapshot, orderBy, query, serverTimestamp, setDoc, Timestamp, updateDoc, where } from 'firebase/firestore';
+import { collection, deleteDoc, doc, onSnapshot, orderBy, query, Timestamp, updateDoc, where } from 'firebase/firestore';
 import { enviarWhats } from '@/scripts/whats';
 import { CheckBox } from 'react-native-elements';
 import { styles } from '@/estilos/lista';
-import { formatarData } from '@/scripts/dataehora';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { modal } from '@/estilos/modal';
@@ -17,9 +16,11 @@ import { Picker } from '@react-native-picker/picker';
 
 export default function Agendamentos() {
 
+  // Dados do usuário logado
   const [role, setRole] = useState('');
   const [id, setId] = useState('');
 
+  // Dados do DB
   const [dentistas, setDentistas] = useState<any[]>([]);
   const [lista, setLista] = useState<Agendamento[]>([]);
   const [nome, setNome] = useState('');
@@ -30,14 +31,16 @@ export default function Agendamentos() {
   const [data, setData] = useState<Date | null>(new Date());
   const [idItem, setidItem] = useState('');
 
+  // UseStates de abrir/fechar
   const [mostrarPassados, setMostrarPassados] = useState(false);
   const [agenda, setAgenda] = useState(false);
-
   const [showData, setShowData] = useState(false); 
   const [showHora, setShowHora] = useState(false);
 
+  // Carregamento
   const [carregando, setCarregando] = useState(true);
 
+  // Tipo de registro da agenda
   type Agendamento = {
     idDoutor: string;
     nome: string;
@@ -48,6 +51,7 @@ export default function Agendamentos() {
     numero: string;
   };
 
+  // Passado e futuro
   type SecoesAgenda = {
     futuros: Record<string, Agendamento[]>;
     passados: Record<string, Agendamento[]>;
@@ -230,6 +234,7 @@ export default function Agendamentos() {
   const diasPassados = Object.keys(passados)
     .sort((a, b) =>  Number(a) - Number(b));
 
+  // Capitaliza a primeira letra da string
   const primeiraMaiuscula = (texto: string) => {
     if (!texto) return "";
     return texto.charAt(0).toUpperCase() + texto.slice(1).toLowerCase();
@@ -268,7 +273,6 @@ export default function Agendamentos() {
 
   return `${primeiraMaiuscula(prefixo)} • ${dia} ${"de " + primeiraMaiuscula(mes)}`;
   };
-
 
   // Preenche states
   const preencherStates = (item: Agendamento) => {
@@ -445,8 +449,6 @@ export default function Agendamentos() {
     )
   };
 
-  if (carregando) return null;
-
   // Renderiza a agenda do passado
   const ItemAgendaPassado = ({ item }: Props) => {
     return (
@@ -504,6 +506,7 @@ export default function Agendamentos() {
     )
   };
 
+  if (carregando) return null;
 
   return (
     <ScrollView style={{padding: 5, backgroundColor: 'white'}}>

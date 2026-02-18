@@ -45,7 +45,7 @@ export default function Configuracoes() {
     setSenha('');
     setPorcent('');
     setChecked(0);
-  }
+  };
 
   // Aceita apenas numeros
   const mudarNum = ( texto: string ) => {
@@ -76,7 +76,7 @@ export default function Configuracoes() {
     else{
       setCartao(valor)
     }
-  }
+  };
 
   // Cadastra novo usuário
   const salvarUsu = async() => {
@@ -162,7 +162,7 @@ export default function Configuracoes() {
 
       Alert.alert(titulo, msg);
     }
-  }
+  };
 
   // Salva nova taxa de cartão
   const salvarTaxa = async() => {
@@ -178,7 +178,7 @@ export default function Configuracoes() {
     }
 
     setTaxa(false);
-  }
+  };
 
   // Reautentica para trocar a senha
   const reautenticar = async () => {

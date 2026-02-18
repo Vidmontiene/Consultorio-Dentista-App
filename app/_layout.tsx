@@ -60,7 +60,6 @@ export default function RootLayout() {
     }
   }, [user, loading]);
 
-
   return (
     <SafeAreaView style={{flex: 1, backgroundColor: 'white'}}>
       <StatusBar barStyle={"dark-content"} translucent={false} backgroundColor="white"/>

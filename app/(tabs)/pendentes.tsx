@@ -1,4 +1,4 @@
-import { StyleSheet, View, Text, TouchableOpacity, Modal, Alert, FlatList } from 'react-native';
+import { View, Text, TouchableOpacity, Modal, Alert, FlatList } from 'react-native';
 import { modal } from '@/estilos/modal';
 import { info as i } from '@/estilos/info';
 import { formatarData, resolverTimestamp } from '@/scripts/dataehora';
@@ -12,16 +12,19 @@ import * as banco from "@/scripts/banco";
 
 export default function Pendencias() {
 
+  // Dados do usuário logado
   const [role, setRole] = useState('');
   const [info, setInfo] = useState(false);
 
-  const [pendencias, setPendencias] = useState<AlteracaoPendente[]>([]);
-  const [carregando, setCarregando] = useState(true);
-  const [usuarios, setUsuarios] = useState<Record<string, Usuario>>({});
-
+  // Dados do DB
   const [item, setItem] = useState<AlteracaoPendente>();
   const [antes, setAntes] = useState<Transacao>();
   const [depois, setDepois] = useState<Transacao>();
+  const [usuarios, setUsuarios] = useState<Record<string, Usuario>>({});
+  const [pendencias, setPendencias] = useState<AlteracaoPendente[]>([]);
+
+  // Carregamento
+  const [carregando, setCarregando] = useState(true);
 
   type AlteracaoPendente = {
     id: string;

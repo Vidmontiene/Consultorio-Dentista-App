@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { View, Text, FlatList, StyleSheet, ScrollView, SectionList, TouchableOpacity, Alert, Modal, TextInput, Keyboard, Platform } from "react-native";
+import { View, Text, FlatList, StyleSheet, ScrollView, TouchableOpacity, Alert, Modal, TextInput, Keyboard, Platform } from "react-native";
 import { escutarRelatorio, LinhaRelatorio, Totais } from "@/scripts/relatorio";
 import { Picker } from '@react-native-picker/picker';
 import * as banco from "@/scripts/banco";
@@ -7,12 +7,11 @@ import { exportarRelatorioExcel } from "@/scripts/exportarExcel";
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { db } from "@/firebaseConfig";
-import { addDoc, collection, deleteDoc, doc, getDoc, onSnapshot, orderBy, query, runTransaction, serverTimestamp, setDoc, Timestamp, updateDoc, where } from "firebase/firestore";
+import { addDoc, collection, deleteDoc, doc, getDoc, onSnapshot, orderBy, query, serverTimestamp, Timestamp, updateDoc, where } from "firebase/firestore";
 import { useFocusEffect } from "expo-router";
 import { modal } from "@/estilos/modal";
 import { CustomRadioButton } from "@/estilos/radioButton";
 import DateTimePicker from "@react-native-community/datetimepicker";
-import usuarios from "../usuarios";
 
 export default function RelatorioScreen() {
 
@@ -25,7 +24,9 @@ export default function RelatorioScreen() {
   const [nomesUsuarios, setNomesUsuarios] = useState<Record<string, UsuarioInfo>>({});
   const [dentistasLista, setDentistasLista] = useState<string[]>([]);
   const [totaisPorDentista, setTotaisPorDentista] = useState<Record<string, number>>({});
+  const [dentistas, setDentistas] = useState<any[]>([]);
 
+  // Informações do usuário logado e caixa
   const [caixaDB, setCaixaDB] = useState(0);
   const [role, setRole] = useState('');
   const [idLogado, setIdLogado] = useState('');
@@ -50,10 +51,9 @@ export default function RelatorioScreen() {
   const [valorClinicaCopy, setValorClinicaCopy] = useState(0);
   const [tipoCopy, setTipoCopy] = useState('');
 
+  // Abrir/Fechar modais
   const [editar, setEditar] = useState(false);
   const [showData, setShowData] = useState(false); 
-
-  const [dentistas, setDentistas] = useState<any[]>([]);
 
   type RelatorioSnapshot = {
     linhas: LinhaRelatorio[];
@@ -335,11 +335,11 @@ export default function RelatorioScreen() {
 
   function criarDataMes(mes: number, ano: number) {
     return new Date(ano, mes - 1, 1);
-  }
+  };
 
   function getMesAnterior(data: Date) {
     return new Date(data.getFullYear(), data.getMonth() - 1, 1);
-  }
+  };
 
   const dataSelecionada = criarDataMes(mesSelecionado, anoSelecionado);
   const mesAnterior = getMesAnterior(dataSelecionada);
