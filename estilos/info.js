@@ -10,6 +10,8 @@ export const info = StyleSheet.create({
     minHeight: 100,
     width: '98%',
     alignSelf: 'center',
+    maxWidth: 600,
+
 
     // ios
     shadowColor: '#000',

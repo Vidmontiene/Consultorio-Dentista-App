@@ -1,4 +1,5 @@
 import { StyleSheet } from 'react-native';
+import { Platform } from 'react-native';
 
 export const styles = StyleSheet.create({
   container: {
@@ -33,6 +34,7 @@ export const styles = StyleSheet.create({
   antes_e_depois_container:{
     marginTop: 10,
     flexDirection: 'row',
+    alignSelf: 'center'
   },
 
   antes_e_depois:{
@@ -56,7 +58,7 @@ export const styles = StyleSheet.create({
   titulo_data:{
     fontWeight: 'bold',
     fontSize: 18,
-    marginVertical: 13
-
+    marginVertical: 13,
+    textAlign: Platform.OS === 'web' ? 'center' : 'auto'
   }
 });

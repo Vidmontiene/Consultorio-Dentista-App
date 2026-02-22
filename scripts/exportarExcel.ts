@@ -3,6 +3,7 @@ import * as XLSX from "xlsx";
 import { File, Directory, Paths } from "expo-file-system";
 import { LinhaRelatorio, Totais } from "./relatorio";
 import * as banco from "@/scripts/banco";
+import { Platform } from "react-native";
 
 // Calcula largura
 function autoSizeColumns(data: any[]) {
@@ -114,31 +115,44 @@ export async function exportarRelatorioExcel(
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, worksheet, "Relatorio");
 
-  const base64 = XLSX.write(workbook, {
-    type: "base64",
-    bookType: "xlsx"
-  });
+  // Exporta web
+  if (Platform.OS === "web") {
+    const blob = new Blob(
+      [XLSX.write(workbook, { type: "array", bookType: "xlsx" })],
+      { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }
+    );
 
-  // Novo sistema de arquivos
-  const pasta = new Directory(Paths.cache, "relatorios");
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `relatorio-${mes}-${ano}.xlsx`;
+    a.click();
+    window.URL.revokeObjectURL(url);
+  }  
+  //Exporta mobile
+  else {
+    const base64 = XLSX.write(workbook, {
+      type: "base64",
+      bookType: "xlsx"
+    });
 
-  try {
-    await pasta.create({ intermediates: true });
-  } 
-  catch (err: any) {
-    if (!err.message.includes("already exists")) {
-      throw err;
+    const pasta = new Directory(Paths.cache, "relatorios");
+
+    try {
+      await pasta.create({ intermediates: true });
+    } catch (err: any) {
+      if (!err.message.includes("already exists")) {
+        throw err;
+      }
     }
+
+    const file = new File(pasta, `relatorio-${mes}-${ano}.xlsx`);
+    await file.write(base64, { encoding: "base64" });
+
+    await Sharing.shareAsync(file.uri, {
+      mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      dialogTitle: `Relatório ${mes}-${ano}`
+    });
   }
-
-  const file = new File(pasta, `relatorio-${mes}-${ano}.xlsx`);
-  console.log(file)
-  await file.write(base64, { encoding: "base64" });
-
-
-  await Sharing.shareAsync(file.uri, {
-    mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    dialogTitle: `Relatório ${mes}-${ano}`
-  });
 }
 

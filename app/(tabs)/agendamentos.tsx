@@ -452,11 +452,11 @@ export default function Agendamentos() {
   // Renderiza a agenda do passado
   const ItemAgendaPassado = ({ item }: Props) => {
     return (
-      <View style={info.container_info}>
+      <View style={[info.container_info, {backgroundColor: '#eeeeee'}]}>
 
-        <View style={info.borda}></View>
+        <View style={[info.borda, {backgroundColor: '#b1b1b1'}]}></View>
         <View style={info.container_hora}>
-          <Text style={info.txt_hora}>{verHora(item.data)}</Text>  
+          <Text style={[info.txt_hora, {color: '#b1b1b1'}]}>{verHora(item.data)}</Text>  
 
           {role === "dentista" && (
             <CheckBox

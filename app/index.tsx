@@ -121,6 +121,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 4,
     elevation: 4, 
+    maxWidth: 600
   },
   botao:{
     width: '90%',
@@ -128,7 +129,8 @@ const styles = StyleSheet.create({
     marginVertical: 15,
     padding: 15,
     borderRadius: 10,
-    backgroundColor: '#F0C10C'
+    backgroundColor: '#F0C10C',
+    maxWidth: 600
   },
   texto:{
     color: 'white',

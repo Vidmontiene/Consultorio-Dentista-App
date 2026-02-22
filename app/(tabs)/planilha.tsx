@@ -1137,6 +1137,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#F0C10C',
     borderRadius: 12,
     alignItems: 'center',
-    justifyContent: 'center'
+    justifyContent: 'center',
   }
 });

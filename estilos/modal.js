@@ -1,4 +1,4 @@
-import { StyleSheet } from 'react-native';
+import { StyleSheet, Platform } from 'react-native';
 
 export const modal = StyleSheet.create({
  fundo_modal:{
@@ -17,7 +17,7 @@ export const modal = StyleSheet.create({
     margin:'auto',
     width: '100%',
     justifyContent: 'center',
-    alignItems: 'flex-start',
+    alignItems: Platform.OS === 'web' ? 'center' : 'flex-start',
     padding: 15,
     height: '100%',
     alignSelf: 'center',
@@ -40,6 +40,7 @@ export const modal = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 4,
     elevation: 4, 
+    maxWidth: 600
   },
 
   botao:{
@@ -48,7 +49,8 @@ export const modal = StyleSheet.create({
     marginVertical: 15,
     padding: 15,
     borderRadius: 10,
-    backgroundColor: '#F0C10C'
+    backgroundColor: '#F0C10C',
+    maxWidth: 600
   },
 
   texto:{
@@ -75,6 +77,7 @@ export const modal = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 4,
     elevation: 4, 
+    maxWidth: 600
   },
 
   input_percent: {
