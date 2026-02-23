@@ -1,50 +1,99 @@
-# Welcome to your Expo app 👋
+# 🦷 Consultório Dentista
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Aplicativo mobile desenvolvido para auxiliar na organização de consultas e controle financeiro de um consultório odontológico.
 
-## Get started
+## ✨ Funcionalidades
 
-1. Install dependencies
+- 👤 Sistema de login
+- 🎲 Dados salvos no Firebase
+- 🎮 Controle total do administrador sobre as transações e usuários cadastrados
+- 💰 Cálculos financeiros:
+  - Taxa do cartão (Ajustável)
+  - Taxa do dentista
+- 🧾 Geração de relatórios financeiros com:
+  - Divisão por mês e ano
+  - Valor em caixa (dinheiro físico)
+  - Valor total por dentista
+  - Possibilidade de exportar para Excel
+- 🗓️ Agenda de consultas marcadas:
+  - Separação por dia
+  - Dentistas podem marcar a consulta como concluída
+  - Possibilidade de enviar uma mensagem no WhatsApp para o cliente, confirmando a consulta
 
-   ```bash
+## 🚀 Como usar
+
+### ⚠️ Requisitos
+
+- React Native + Expo instalado ([Clique aqui para ver o guia de instalação](https://reactnative.dev/docs/set-up-your-environment))
+- Dispositivo Android ou emulador
+- [Expo Go](https://expo.dev/go) (caso utilize dispositivo físico)
+
+### 🔥 Configurando o Projeto Firebase
+
+1. Acesse o console do [Firebase](https://console.firebase.google.com/?hl=pt-br)
+2. Crie um novo projeto
+3. Clique na engrenagem ⚙️ → Geral → Seus aplicativos → Web
+
+![Seus aplicativos](./assets/images/image.png)
+
+4. Registre seu app e copie o firebaseConfig criado (Ele será importante)
+5. Em "Criação", habilite "Authentication" (E-mail/senha) e "Firestore Database"
+
+### 🔗 Vinculando o Firebase com o Projeto
+
+1. Abra a pasta do app no seu editor de preferência e renomeie a pasta .env.example para somente .env
+2. Coloque todas as informações do firebaseConfig do projeto que você criou lá, sem aspas ou ponto e vírgula
+
+### 📲 Iniciando o Projeto
+
+1. Instale as dependências:
+
+   ```
    npm install
    ```
 
-2. Start the app
+2. Inicie o app:
 
-   ```bash
+   ```
    npx expo start
    ```
+3. Leia o QR code gerado no terminal pelo aplicativo da Expo Go ou abra pelo emulador
 
-In the output, you'll find options to open the app in a
+## 🔐 Primeiro Acesso
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+Por questões de segurança, a tela inicial é uma tela de login **sem a opção de criar uma nova conta** (afinal, somente um administrador pode criar uma nova conta). Para prosseguir, é necessário cadastrar um email e senha na parte "Authentication" do firebase, ou modificar os arquivos conforme necessário.
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+Se optar por criar uma conta, siga os seguintes passos para definir o primeiro administrador:
+1. Crie um usuário no Firebase Authentication.
+2. Copie o UID gerado.
+3. Crie uma coleção `usuario` no Firestore.
+4. Crie um documento com o UID como ID.
+5. Adicione os seguintes campos:
+  - criadoEm: timestamp
+  - email: string
+  - nome: string
+  - role: string (digite "admin")
+  - uid: string
+  - porcentagem: number
 
-## Get a fresh project
+Esse procedimento só será necessário uma vez, após isso, será possível criar, excluir e editar usuários dentro do próprio app (se seu role for "admin") 
 
-When you're ready, run:
+## 🛠️ Tecnologias Utilizadas
 
-```bash
-npm run reset-project
-```
+- React Native
+- Expo
+- Firebase (Authentication + Firestore)
+- TypeScript
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+## 📸 Fotos do App
 
-## Learn more
+<p align="center">
+  <img src="assets/app-screens/login.jpg" width="250"/>
+  <img src="assets/app-screens/transacao.jpg" width="250"/>
+  <img src="assets/app-screens/agenda.jpg" width="250"/>
+  <img src="assets/app-screens/configuracoes.jpg" width="250"/>
+</p>
 
-To learn more about developing your project with Expo, look at the following resources:
+## 👨‍💻 Autora
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+Desenvolvido por **Camila Vidmontiene**, estudante de Ciência da Computação na [Universidade do Estado do Rio de Janeiro](https://www.uerj.br/).  
